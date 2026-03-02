@@ -56,11 +56,12 @@ if not df_all.empty:
     # Sloupce s datem
     cols_date = [c for c in cols if 'dne' in c.lower() or 'ukončení' in c.lower()]
 
-    # Převod financí a čištění dat (odstranění času u všech datumů)
+    # Převod financí na čísla (ponecháváme jako float pro styling)
     fin_cols = [c for c in [col_nabidka, col_dph, col_rozdil] if c]
     for c in fin_cols:
         df_all[c] = pd.to_numeric(df_all[c], errors='coerce').fillna(0)
 
+    # Převod dat
     for c in cols_date:
         df_all[c] = pd.to_datetime(df_all[c], errors='coerce').dt.date
 
@@ -87,7 +88,6 @@ if not df_all.empty:
 
     # --- 4. SOUČTY ---
     def fmt_num(val):
-        # Formát 00 000 000,00 Kč
         return f"{val:,.2f}".replace(",", " ").replace(".", ",") + " Kč"
 
     if col_nabidka:
@@ -116,19 +116,17 @@ if not df_all.empty:
         
         if col_rozdil:
             idx_rozdil = row.index.get_loc(col_rozdil)
-            if row[col_rozdil] < 0:
+            # Nyní funguje, protože v df_f jsou stále čísla
+            if float(row[col_rozdil]) < 0:
                 styles[idx_rozdil] += '; color: #d00000; font-weight: bold;'
         return styles
 
-    # Formátování čísel pro tabulku: 00 000 000.00
-    # (V tabulce používáme tečku jako oddělovač pro haléře, aby to bylo přehlednější)
-    format_config = {c: "{:,.2f}".format for c in fin_cols}
-    # Převod formátu z čárky na mezeru u tisíců
-    for c in format_config:
-        df_f[c] = df_f[c].apply(lambda x: f"{x:,.2f}".replace(",", " "))
+    # Definice formátu: oddělovač tisíců mezera, 2 desetinná místa
+    # Formátování se aplikuje až při zobrazení v .format()
+    format_dict = {c: lambda x: f"{x:,.2f}".replace(",", " ") for c in fin_cols}
 
     st.dataframe(
-        df_f.style.apply(apply_style, axis=1),
+        df_f.style.apply(apply_style, axis=1).format(format_dict),
         use_container_width=True, 
         height=700,
         hide_index=True
