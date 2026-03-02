@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE ---
+# --- 1. KONFIGURACE A STYLING ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -10,44 +10,31 @@ st.markdown("""
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    .block-container { 
-        padding-top: 0rem !important; 
-        padding-bottom: 0rem !important; 
-        padding-left: 0.5rem !important; 
-        padding-right: 0.5rem !important;
-        max-width: 100% !important;
-    }
-    .custom-head { font-size: 1.1rem; font-weight: bold; margin-top: 0.3rem; margin-bottom: 0.3rem; }
-    .metric-box {
-        border: 1px solid #d1d5db;
-        background-color: #f9fafb;
-        padding: 3px 8px;
-        border-radius: 4px;
-        text-align: center;
-        margin-bottom: 5px;
-    }
-    .metric-label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; }
-    .metric-value { font-size: 0.85rem; font-weight: bold; color: #111827; }
-
-    /* TABULKA - VÝŠKA NA 16 ŘÁDKŮ */
+    .block-container { padding: 0rem 0.5rem !important; max-width: 100% !important; }
+    
     .table-container {
-        height: 400px; 
+        height: 450px; 
         overflow-y: scroll;
         overflow-x: auto;
         border: 1px solid #e5e7eb;
     }
-    /* MASIVNÍ POSUVNÍK */
-    .table-container::-webkit-scrollbar { width: 35px !important; height: 35px !important; }
-    .table-container::-webkit-scrollbar-track { background: #f1f1f1 !important; }
-    .table-container::-webkit-scrollbar-thumb { background: #888 !important; border: 5px solid #f1f1f1; }
+    
+    /* Široký posuvník pro snadné ovládání */
+    .table-container::-webkit-scrollbar { width: 35px; height: 35px; }
+    .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
+    .table-container::-webkit-scrollbar-thumb { background: #888; border: 5px solid #f1f1f1; }
 
     .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; }
+    
+    /* Styling hlavičky podle vzoru */
     .html-table th { 
         position: sticky; top: 0; 
-        background-color: #f3f4f6; color: #374151; 
-        padding: 6px; border: 1px solid #e5e7eb; z-index: 10;
-        text-align: left;
+        background-color: #f3f4f6; border: 1px solid #000;
+        padding: 4px; z-index: 10; text-align: center;
     }
+    .cat-i { background-color: #ffff00 !important; color: black; font-weight: bold; } /* Žlutá Kategorie I */
+    .cat-ii { background-color: #00ffff !important; color: black; font-weight: bold; } /* Azurová Kategorie II */
+    
     .html-table td { padding: 4px 6px; border: 1px solid #e5e7eb; white-space: nowrap; }
     .row-hotovo { background-color: #f0fdf4 !important; }
     .row-probiha { background-color: #fffbeb !important; }
@@ -55,109 +42,83 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. NAČTENÍ A PŘESNÉ POŘADÍ SLOUPCŮ ---
+# --- 2. NAČTENÍ DAT ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
-        # Čteme data od řádku 4 (kde jsou názvy jako poř.č., firma...)
-        df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
+        # Čteme data od řádku 5 (skutečná data začínají pod hlavičkami)
+        df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.dropna(how='all')
-        
-        # DEFINICE PŘESNÝCH NÁZVŮ PODLE TVÉHO OBRÁZKU (bez .1, .2 atd.)
-        # Toto přepíše to, co Pandas načte špatně ze sloučených buněk
-        custom_headers = [
-            "poř.č.", "firma", "PS", "SNK", "BO", "PS", "BO", "poruchy", 
-            "č.stavby", "název stavby", "nabídka", "rozdíl", "vyfaktur.", 
-            "ukončení", "zrealizováno", "SOD", "ze dne", "objednatel", 
-            "stavbyvedoucí", "nabídková cena", "č.faktury", "částka bez DPH", "splatná"
-        ]
-        
-        # Ořízneme DataFrame na počet definovaných sloupců, pokud jich je v Excelu víc/míň
-        df = df.iloc[:, :len(custom_headers)]
-        df.columns = custom_headers
-        
-        # Likvidace nan/NaT
+        # Vyčištění od nan/NaT
         df = df.replace({np.nan: '', 'nan': '', 'NaT': '', 'None': ''})
         return df
-    except Exception as e:
-        st.error(f"Chyba při načítání: {e}")
+    except:
         return pd.DataFrame()
 
-df_raw = load_data()
+df = load_data()
 
-if not df_raw.empty:
-    # Horní lišta
-    c_h1, c_h2 = st.columns([1, 5])
-    with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
-    with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
-
-    df = df_raw.copy()
-    if hledat:
-        df = df[df.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)]
-
-    # Seznamy pro formátování
-    money_cols = ["PS", "SNK", "BO", "poruchy", "nabídka", "rozdíl", "vyfaktur.", "nabídková cena", "částka bez DPH"]
-    date_cols = ["ukončení", "zrealizováno", "ze dne", "splatná"]
+if not df.empty:
+    # Horní lišta a součty (zjednodušeno pro přehlednost)
+    st.markdown('<div style="font-size: 1.2rem; font-weight: bold;">Evidence 2026</div>', unsafe_allow_html=True)
     
-    # Hledáme sloupec se stavem (pravděpodobně 'firma' nebo jiný, pokud v Excelu není explicitní 'stav')
-    # Pokud máš v Excelu sloupec "stav", kód ho použije pro barvy
-    col_stav = next((c for c in df.columns if 'stav' in str(c).lower()), None)
-
-    # --- 3. SOUČTY ---
-    def get_val(kw=None):
-        col_n = "nabídka" if "nabídka" in df.columns else df.columns[10]
-        nums = pd.to_numeric(df[col_n], errors='coerce').fillna(0)
-        if kw and col_stav:
-            mask = df[col_stav].astype(str).str.contains(kw, case=False, na=False)
-            return nums[mask].sum()
-        return nums.sum()
-
-    m = st.columns(5)
-    labels = ["CELKEM", "HOTOVO", "FAKTURACE", "PROBÍHÁ", "ZAKÁZEK"]
-    vals = [
-        f"{get_val():,.2f}".replace(",", " ") + " Kč",
-        f"{get_val('hotov'):,.2f}".replace(",", " ") + " Kč",
-        f"{get_val('faktur'):,.2f}".replace(",", " ") + " Kč",
-        f"{get_val('probíh'):,.2f}".replace(",", " ") + " Kč",
-        str(len(df))
-    ]
-    for i in range(5):
-        m[i].markdown(f'<div class="metric-box"><div class="metric-label">{labels[i]}</div><div class="metric-value">{vals[i]}</div></div>', unsafe_allow_html=True)
-
-    # --- 4. TABULKA (HTML) ---
-    html = '<div class="table-container"><table class="html-table"><thead><tr>'
-    for c in df.columns: 
-        html += f'<th>{c}</th>'
+    # --- 3. RUČNÍ SESTAVENÍ HTML TABULKY S DVOUŘÁDKOVOU HLAVIČKOU ---
+    html = '<div class="table-container"><table class="html-table">'
+    
+    # První řádek hlavičky (Kategorie)
+    html += '<thead>'
+    html += '<tr>'
+    html += '<th rowspan="2">poř.č.</th>'
+    html += '<th rowspan="2">firma</th>'
+    html += '<th colspan="3" class="cat-i">kategorie I</th>'
+    html += '<th colspan="3" class="cat-ii">kategorie II</th>'
+    html += '<th rowspan="2">č.stavby</th>'
+    html += '<th rowspan="2">název stavby</th>'
+    html += '<th rowspan="2">nabídka</th>'
+    html += '<th rowspan="2">rozdíl</th>'
+    html += '<th rowspan="2">vyfaktur.</th>'
+    html += '<th rowspan="2">ukončení</th>'
+    html += '<th rowspan="2">zrealizováno</th>'
+    html += '<th rowspan="2">SOD</th>'
+    html += '<th rowspan="2">ze dne</th>'
+    html += '<th rowspan="2">objednatel</th>'
+    html += '<th rowspan="2">stavbyvedoucí</th>'
+    html += '<th rowspan="2">nabídková cena</th>'
+    html += '<th rowspan="2">č.faktury</th>'
+    html += '<th rowspan="2">částka bez DPH</th>'
+    html += '<th rowspan="2">splatná</th>'
+    html += '</tr>'
+    
+    # Druhý řádek hlavičky (Podnázvy)
+    html += '<tr>'
+    html += '<th>PS</th><th>SNK</th><th>BO</th>' # Pod Kat I
+    html += '<th>PS</th><th>BO</th><th>poruch</th>' # Pod Kat II
     html += '</tr></thead><tbody>'
 
+    # --- 4. VÝPIS DAT ---
     for _, row in df.iterrows():
+        # Logika pro barvy řádků (předpokládáme, že stav je v jednom ze sloupců)
         tr_cls = ""
-        if col_stav:
-            s = str(row[col_stav]).lower()
-            if 'hotov' in s: tr_cls = ' class="row-hotovo"'
-            elif 'probíh' in s: tr_cls = ' class="row-probiha"'
+        # Zde můžete přidat podmínku pro row[index] pro barvení
         
         html += f'<tr{tr_cls}>'
-        for i, (col_name, v) in enumerate(row.items()):
-            td_cls = ""
-            val_str = ""
+        for i, val in enumerate(row):
+            if i >= 23: break # Omezení na počet sloupců v hlavičce
             
-            if v is not None and str(v).strip().lower() not in ['nan', 'nat', 'none', '']:
-                # Formát peněz
-                if col_name in money_cols:
-                    try:
-                        n = float(v)
-                        val_str = f"{n:.2f}"
-                        if col_name == "rozdíl" and n < 0: td_cls = ' class="red-bold"'
-                    except: val_str = str(v)
-                # Formát data
-                elif col_name in date_cols:
-                    try:
-                        val_str = pd.to_datetime(v).strftime('%d.%m.%Y')
-                        if "1900" in val_str: val_str = ""
-                    except: val_str = str(v)
-                else:
-                    val_str = str(v)
+            td_cls = ""
+            val_str = str(val)
+            
+            # Formátování čísel (sloupce 2-7 a 10-12 atd. jsou peněžní)
+            if i in [2, 3, 4, 5, 6, 7, 10, 11, 12, 19, 21]:
+                try:
+                    n = float(val)
+                    val_str = f"{n:.2f}"
+                    if i == 11 and n < 0: td_cls = ' class="red-bold"' # Sloupec "rozdíl"
+                except: pass
+                
+            # Formátování dat
+            elif i in [13, 14, 16, 22]:
+                try: val_str = pd.to_datetime(val).strftime('%d.%m.%Y')
+                except: pass
 
             html += f'<td{td_cls}>{val_str}</td>'
         html += '</tr>'
@@ -165,4 +126,4 @@ if not df_raw.empty:
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 else:
-    st.error("Data nenalezena.")
+    st.error("Data nebyla načtena. Zkontrolujte název souboru.")
