@@ -1,172 +1,150 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. KONFIGURACE STRÁNKY ---
+# --- 1. KONFIGURACE ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
-# --- 2. EXTRÉMNÍ DESIGN (STYLING) ---
+# --- 2. TOTÁLNÍ STYLING (OPRAVA MEZER A RÁMEČKŮ) ---
 st.markdown("""
     <style>
-    /* Skrytí standardních prvků */
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
+    
+    /* Odstranění prázdného místa nahoře */
+    .block-container { 
+        padding-top: 0rem !important; 
+        padding-bottom: 0rem !important; 
+    }
 
-    /* KONTEJNER PRO TABULKU - Nastaveno na 16 řádků */
-    .table-wrapper {
-        height: 650px; 
+    /* Nadpis a hledání v jedné lince */
+    .custom-head { 
+        font-size: 1.2rem; 
+        font-weight: bold; 
+        margin-bottom: 0.5rem; 
+        margin-top: 0.5rem;
+    }
+
+    /* Součty v rámečcích */
+    .metric-box {
+        border: 1px solid #d1d5db;
+        background-color: #f9fafb;
+        padding: 5px 10px;
+        border-radius: 4px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .metric-label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; }
+    .metric-value { font-size: 0.9rem; font-weight: bold; color: #111827; }
+
+    /* TABULKA A POSUVNÍK - LIMIT 16 ŘÁDKŮ */
+    .table-container {
+        height: 520px; /* Pevná výška pro cca 16 řádků */
         overflow-y: scroll;
         overflow-x: auto;
-        border: 2px solid #262730;
-        background-color: white;
+        border: 1px solid #e5e7eb;
     }
 
-    /* POSUVNÍK - EXTRÉMNĚ TLUSTÝ (40px) */
-    .table-wrapper::-webkit-scrollbar {
-        width: 40px !important;
-        height: 40px !important;
-    }
-    .table-wrapper::-webkit-scrollbar-track {
-        background: #f1f1f1 !important;
-    }
-    .table-wrapper::-webkit-scrollbar-thumb {
-        background: #444 !important;
-        border: 6px solid #f1f1f1;
-        border-radius: 4px;
-    }
-    .table-wrapper::-webkit-scrollbar-thumb:hover {
-        background: #222 !important;
-    }
+    .table-container::-webkit-scrollbar { width: 30px !important; height: 30px !important; }
+    .table-container::-webkit-scrollbar-track { background: #f1f1f1 !important; }
+    .table-container::-webkit-scrollbar-thumb { background: #888 !important; border: 5px solid #f1f1f1; }
 
-    /* STYL HTML TABULKY */
-    .main-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-size: 13px;
+    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 13px; }
+    .html-table th { 
+        position: sticky; top: 0; 
+        background-color: #f3f4f6; color: #374151; 
+        padding: 8px; border: 1px solid #e5e7eb; z-index: 10;
     }
-    .main-table th {
-        position: sticky;
-        top: 0;
-        background-color: #262730;
-        color: white;
-        padding: 12px 8px;
-        text-align: left;
-        border: 1px solid #444;
-        z-index: 20;
-    }
-    .main-table td {
-        padding: 8px;
-        border: 1px solid #ddd;
-        white-space: nowrap;
-    }
-    .main-table tr:hover { background-color: #f9f9f9; }
+    .html-table td { padding: 6px; border: 1px solid #e5e7eb; white-space: nowrap; }
     
-    /* Barvy stavů a záporných hodnot */
-    .st-hotovo { background-color: #f1fcf4 !important; }
-    .st-probiha { background-color: #fffdf2 !important; }
-    .st-fakturace { background-color: #f0f7ff !important; }
-    .negativni { color: #d00000; font-weight: bold; }
-
-    /* DESIGN METRIK */
-    .metric-card {
-        background: white;
-        border: 1px solid #e6e9ef;
-        padding: 10px;
-        border-radius: 5px;
-        text-align: center;
-    }
+    /* Barvy */
+    .row-hotovo { background-color: #f0fdf4 !important; }
+    .row-probiha { background-color: #fffbeb !important; }
+    .red-bold { color: #dc2626; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. LOGIKA NAČÍTÁNÍ DAT ---
+# --- 3. DATA ---
 @st.cache_data(ttl=1)
-def load_and_fix_data():
+def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
         df = df.dropna(how='all')
         df.columns = [str(c).strip() for c in df.columns]
         return df
-    except:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
-df_raw = load_and_fix_data()
+df_raw = load_data()
 
 if not df_raw.empty:
-    # Horní lišta: Název a Vyhledávání
-    c1, c2 = st.columns([1, 2])
-    with c1: st.markdown("## 🏗️ Evidence 2026")
-    with c2: hledat = st.text_input("", placeholder="Zadejte text pro vyhledávání (firma, stav, číslo stavby...)", label_visibility="collapsed")
+    # Horní lišta: Nadpis + Hledání
+    c_h1, c_h2 = st.columns([1, 4])
+    with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
+    with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
 
     # Filtrování
-    df_filtered = df_raw.copy()
+    df = df_raw.copy()
     if hledat:
-        mask = df_filtered.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)
-        df_filtered = df_filtered[mask]
+        df = df[df.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)]
 
-    # Identifikace sloupců
-    money_cols = [c for c in df_filtered.columns if any(x in c.lower() for x in ['nabídka', 'rozdíl', 'bez dph', 'vyfaktur', 'ps', 'snk', 'bo', 'poruchy'])]
-    col_stav = next((c for c in df_filtered.columns if 'stav' in c.lower() and 'název' not in c.lower()), None)
+    # Sloupce
+    money_cols = [c for c in df.columns if any(x in c.lower() for x in ['nabídka', 'rozdíl', 'bez dph', 'vyfaktur', 'ps', 'snk', 'bo', 'poruchy'])]
+    col_stav = next((c for c in df.columns if 'stav' in c.lower() and 'název' not in c.lower()), None)
     col_nabidka = next((c for c in money_cols if 'nabídka' in c.lower()), money_cols[0] if money_cols else None)
 
-    # --- 4. VÝPOČET SOUČTŮ (METRIKY) ---
-    def calc_sum(keyword=None):
+    # --- 4. SOUČTY V RÁMEČCÍCH ---
+    def get_val(kw=None):
         if not col_nabidka: return 0
-        temp_df = df_filtered.copy()
-        temp_df[col_nabidka] = pd.to_numeric(temp_df[col_nabidka], errors='coerce').fillna(0)
-        if keyword and col_stav:
-            return temp_df[temp_df[col_stav].astype(str).str.contains(keyword, case=False, na=False)][col_nabidka].sum()
-        return temp_df[col_nabidka].sum()
+        d = df.copy()
+        d[col_nabidka] = pd.to_numeric(d[col_nabidka], errors='coerce').fillna(0)
+        if kw and col_stav:
+            return d[d[col_stav].astype(str).str.contains(kw, case=False, na=False)][col_nabidka].sum()
+        return d[col_nabidka].sum()
 
-    m1, m2, m3, m4, m5 = st.columns(5)
-    with m1: st.metric("CELKEM", f"{calc_sum():,.2f}".replace(",", " ").replace(".", ",") + " Kč")
-    with m2: st.metric("HOTOVO", f"{calc_sum('hotov'):,.2f}".replace(",", " ").replace(".", ",") + " Kč")
-    with m3: st.metric("FAKTURACE", f"{calc_sum('faktur'):,.2f}".replace(",", " ").replace(".", ",") + " Kč")
-    with m4: st.metric("PROBÍHÁ", f"{calc_sum('probíh'):,.2f}".replace(",", " ").replace(".", ",") + " Kč")
-    with m5: st.metric("ZAKÁZEK", len(df_filtered))
+    m = st.columns(5)
+    labels = ["CELKEM", "HOTOVO", "FAKTURACE", "PROBÍHÁ", "ZAKÁZEK"]
+    vals = [
+        f"{get_val():,.2f}".replace(",", " ") + " Kč",
+        f"{get_val('hotov'):,.2f}".replace(",", " ") + " Kč",
+        f"{get_val('faktur'):,.2f}".replace(",", " ") + " Kč",
+        f"{get_val('probíh'):,.2f}".replace(",", " ") + " Kč",
+        str(len(df))
+    ]
+    for i in range(5):
+        m[i].markdown(f'<div class="metric-box"><div class="metric-label">{labels[i]}</div><div class="metric-value">{vals[i]}</div></div>', unsafe_allow_html=True)
 
-    # --- 5. GENERÁTOR HTML TABULKY ---
-    html_code = '<div class="table-wrapper"><table class="main-table"><thead><tr>'
-    for col in df_filtered.columns:
-        html_code += f'<th>{col}</th>'
-    html_code += '</tr></thead><tbody>'
+    # --- 5. TABULKA (HTML) ---
+    html = '<div class="table-container"><table class="html-table"><thead><tr>'
+    for c in df.columns: html += f'<th>{c}</th>'
+    html += '</tr></thead><tbody>'
 
-    for _, row in df_filtered.iterrows():
-        # Určení barvy řádku
-        tr_class = ""
+    for _, row in df.iterrows():
+        cls = ""
         if col_stav:
             s = str(row[col_stav]).lower()
-            if 'hotov' in s: tr_class = ' class="st-hotovo"'
-            elif 'probíh' in s: tr_class = ' class="st-probiha"'
-            elif 'faktur' in s: tr_class = ' class="st-fakturace"'
+            if 'hotov' in s: cls = ' class="row-hotovo"'
+            elif 'probíh' in s: cls = ' class="row-probiha"'
+        
+        html += f'<tr{cls}>'
+        for c in df.columns:
+            v = row[c]
+            val_str = str(v) if pd.notna(v) else ""
+            td_cls = ""
 
-        html_code += f'<tr{tr_class}>'
-        for col in df_filtered.columns:
-            val = row[col]
-            td_style = ""
-            display_val = str(val) if pd.notna(val) else ""
-
-            # Formát čísel na 2 desetiny
-            if col in money_cols:
+            if c in money_cols:
                 try:
-                    num = float(val)
-                    display_val = f"{num:.2f}"
-                    if 'rozdíl' in col.lower() and num < 0: td_style = ' class="negativni"'
+                    n = float(v)
+                    val_str = f"{n:.2f}"
+                    if 'rozdíl' in c.lower() and n < 0: td_cls = ' class="red-bold"'
                 except: pass
-            
-            # Formát data
-            elif any(x in col.lower() for x in ['dne', 'ukončení']):
-                try: display_val = pd.to_datetime(val).strftime('%d.%m.%Y')
+            elif any(x in c.lower() for x in ['dne', 'ukončení']):
+                try: val_str = pd.to_datetime(v).strftime('%d.%m.%Y')
                 except: pass
 
-            html_code += f'<td{td_style}>{display_val}</td>'
-        html_code += '</tr>'
+            html += f'<td{td_cls}>{val_str}</td>'
+        html += '</tr>'
     
-    html_code += '</tbody></table></div>'
-    
-    # Zobrazení tabulky
-    st.markdown(html_code, unsafe_allow_html=True)
-
+    html += '</tbody></table></div>'
+    st.markdown(html, unsafe_allow_html=True)
 else:
-    st.error("Soubor nebyl nalezen nebo je prázdný.")
+    st.error("Data nenalezena.")
