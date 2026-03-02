@@ -89,17 +89,22 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. SOUČTY (OPRAVENO: DUR=3, ZMES=4) ---
+    # --- 3. SOUČTY (OPRAVENO DLE VZORCŮ K3 a L3) ---
     def get_sum(col_idx):
         return pd.to_numeric(df[col_idx], errors='coerce').fillna(0).sum()
 
     m = st.columns([1.2, 2.2, 1.2, 1.2, 1])
     
-    celkem_val = get_sum(10) # Celkem Nabídka
-    dur_val = get_sum(3)    # DUR (Sloupec SNK I)
-    zmes_val = get_sum(4)   # ZMES (Sloupec BO I)
+    # Podle Excelu: K=11. sloupec (index 10), L=12. sloupec (index 11)
+    # Sloupec J (10) v tvém excelu je "název stavby", K (11) je "nabídka", L (12) je "rozdíl"
+    
+    dur_val = get_sum(10)   # Excel Sloupec K (index 10)
+    zmes_val = get_sum(11)  # Excel Sloupec L (index 11)
+    celkem_val = dur_val    # Pokud je Celkem to samé co DUR, necháme index 10
+    
     zakazek_cnt = len(df[df[0] != ''])
 
+    # Zobrazení boxů
     m[0].markdown(f'<div class="metric-box"><div class="metric-label">CELKEM</div><div class="metric-value">{celkem_val:,.2f} Kč'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
     
     m[1].markdown(f'''
