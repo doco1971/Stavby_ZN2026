@@ -115,26 +115,28 @@ def load_data():
 
 df_raw = load_data()
 
+# --- FUNKCE PRO RESET HLEDÁNÍ ---
+def reset_search():
+    st.session_state.search_key = ""
+
 if not df_raw.empty:
-    # --- HLEDÁNÍ S RESETEM (FIXNUTO) ---
+    # --- HLAVIČKA A HLEDÁNÍ ---
     c_h1, c_h2, c_h3 = st.columns([1, 3.5, 0.5])
     with c_h1: 
         st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
     with c_h2: 
         hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed", key="search_key")
     with c_h3:
-        if st.button("❌", help="Smazat hledání"):
-            st.session_state.search_key = ""
-            st.rerun()
+        # Použití on_click pro bezpečné vymazání
+        st.button("❌", help="Smazat hledání", on_click=reset_search)
 
     df = df_raw.copy()
-    # Filtrace prázdných řádků
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
 
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY (DUR / ZMES) ---
+    # --- 4. VÝPOČTY (KAT I + KAT II) ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
 
@@ -160,7 +162,7 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 6. HTML TABULKA (23 SLOUPCŮ) ---
+    # --- 6. HTML TABULKA ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:35px"><col style="width:90px">'
