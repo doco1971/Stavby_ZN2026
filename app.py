@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE ---
+# --- 1. KONFIGURACE (ZACHOVÁNO) ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -74,7 +74,9 @@ def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
-        df = df.replace({np.nan: '', 'nan': '', 'NaT': '', 'None': ''})
+        # Převedeme vše na numerické hodnoty tam, kde sčítáme
+        for col in [2, 3, 4, 10, 11, 12]:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         return df
     except: return pd.DataFrame()
 
@@ -89,31 +91,24 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. DYNAMICKÉ SOUČTY ---
+    # --- 3. OPRAVENÝ VÝPOČET SOUČTŮ ---
     dur_val = 0.0
     zmes_val = 0.0
 
     for _, row in df.iterrows():
-        # Součet Kategorie I (PS + SNK + BO) -> indexy 2, 3, 4
-        try:
-            line_sum = (pd.to_numeric(row[2], errors='coerce') or 0) + \
-                       (pd.to_numeric(row[3], errors='coerce') or 0) + \
-                       (pd.to_numeric(row[4], errors='coerce') or 0)
-            
-            firma = str(row[1]).strip().upper()
-            if "DUR" in firma:
-                dur_val += line_sum
-            elif "ZMES" in firma:
-                zmes_val += line_sum
-        except:
-            pass
+        # Součet Kategorie I (sloupce C, D, E -> indexy 2, 3, 4)
+        line_sum = float(row[2]) + float(row[3]) + float(row[4])
+        
+        firma = str(row[1]).strip().upper()
+        if "DUR" in firma:
+            dur_val += line_sum
+        elif "ZMES" in firma:
+            zmes_val += line_sum
 
-    def get_sum(col_idx):
-        return pd.to_numeric(df[col_idx], errors='coerce').fillna(0).sum()
-
-    celkem_val = get_sum(10) # Celková Nabídka
+    celkem_val = df[10].sum() # Sloupec K (index 10)
     zakazek_cnt = len(df[df[0] != ''])
 
+    # --- ZOBRAZENÍ METRIK ---
     m = st.columns([1.2, 2.2, 1.2, 1.2, 1])
     
     m[0].markdown(f'<div class="metric-box"><div class="metric-label">CELKEM</div><div class="metric-value">{celkem_val:,.2f} Kč'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
@@ -150,16 +145,17 @@ if not df_raw.empty:
         for i in range(23):
             val = row[i]
             td_cls = ""
+            # Formátování čísel pro zobrazení
             if i in [2,3,4,5,6,7,10,11,12,19,21]:
                 try:
                     n = float(val)
-                    val = f"{n:,.2f}".replace(",", " ")
+                    val = f"{n:,.2f}".replace(",", " ") if n != 0 else ""
                     td_cls = ' class="num-align"'
                     if i == 11 and n < 0: td_cls = ' class="red-bold"'
-                except: pass
+                except: val = ""
             elif i in [13, 14, 16, 22]:
                 try: val = pd.to_datetime(val).strftime('%d.%m.%Y')
-                except: pass
+                except: val = ""
             html += f'<td{td_cls}>{val}</td>'
         html += '</tr>'
     html += '</tbody></table></div>'
