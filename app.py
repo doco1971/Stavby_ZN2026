@@ -17,7 +17,7 @@ st.markdown("""
     }
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
-    /* Metriky nad tabulkou */
+    /* Metriky */
     .metric-box-styled {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
@@ -30,71 +30,53 @@ st.markdown("""
         flex-direction: column;
     }
     .cat-header-main {
-        font-size: 0.65rem;
-        font-weight: bold;
-        background-color: #e5e7eb;
-        border-bottom: 1px solid #d1d5db;
-        padding: 4px 0;
-        text-transform: uppercase;
-        flex-shrink: 0;
+        font-size: 0.65rem; font-weight: bold; background-color: #e5e7eb;
+        border-bottom: 1px solid #d1d5db; padding: 4px 0; text-transform: uppercase;
     }
-    .cat-content {
-        display: flex;
-        justify-content: space-around;
-        flex-grow: 1;
-        align-items: center;
-        padding: 2px 0;
-    }
-    .cat-sub-item { flex: 1; }
-    .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; line-height: 1; }
+    .cat-content { display: flex; justify-content: space-around; flex-grow: 1; align-items: center; }
+    .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
-    /* KONTEJNER TABULKY */
+    /* KONTEJNER A TABULKA - OPRAVA BÍLÉHO MIZENÍ */
     .table-container { 
         height: 450px; 
-        overflow-y: auto; 
-        border-top: 1px solid #000;
-        border-left: 1px solid #000;
-        background-color: #fff;
+        overflow: auto; 
+        border: 1px solid #000;
+        background-color: #000; /* Černé pozadí podkladu vytvoří linky mezi buňkami */
     }
+    
     .table-container::-webkit-scrollbar { width: 25px; height: 25px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
-    /* TABULKA A FIXNÍ ČÁRY */
     .html-table { 
         width: 100%; 
         border-collapse: separate; 
-        border-spacing: 0; 
+        border-spacing: 1px; /* Tato 1px mezera na černém podkladu vytvoří linky */
         font-family: sans-serif; 
         font-size: 12px; 
         table-layout: fixed;
+        background-color: #000;
     }
     
     .html-table th, .html-table td {
-        border-right: 1px solid #000;
-        border-bottom: 1px solid #000;
         padding: 4px 8px;
         white-space: nowrap;
         overflow: hidden;
-        background-clip: padding-box; /* Zabrání překrytí čar barvou pozadí */
+        background-color: #fff; /* Buňky jsou bílé, mezery mezi nimi černé */
     }
 
     /* FIXNÍ HLAVIČKA */
     .html-table th { 
         position: sticky; 
-        background-color: #f3f4f6 !important; 
-        z-index: 20; 
+        background-color: #f3f4f6; 
+        z-index: 10; 
         text-align: center;
         font-weight: bold;
     }
 
-    .html-table td {
-        background-color: #ffffff;
-    }
-
-    .html-table thead tr:nth-child(1) th { top: 0; }
-    .html-table thead tr:nth-child(2) th { top: 29px; } 
+    .html-table thead tr:nth-child(1) th { top: 0; z-index: 12; }
+    .html-table thead tr:nth-child(2) th { top: 29px; z-index: 12; } 
     
     /* ZAROVNÁNÍ */
     .num-align { text-align: right; }
@@ -111,7 +93,6 @@ if 'logged_in' not in st.session_state:
 if not st.session_state.logged_in:
     _, col_m, _ = st.columns([1, 1, 1])
     with col_m:
-        st.write("")
         st.markdown("### 🔐 Přihlášení do systému")
         u = st.text_input("Uživatel")
         p = st.text_input("Heslo", type="password")
@@ -148,27 +129,24 @@ if not df_raw.empty:
     c_h1, c_h2, c_h3 = st.columns([1, 3.5, 0.5])
     with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
     with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed", key="search_key")
-    with c_h3: st.button("❌", help="Smazat hledání", on_click=reset_search)
+    with c_h3: st.button("❌", on_click=reset_search)
 
     df = df_raw.copy()
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY (Suma Kat I: PS+SNK+BO, Kat II: PS+BO+Poruch) ---
+    # --- 4. VÝPOČTY ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
     for _, row in df.iterrows():
-        sum1 = float(row[2]) + float(row[3]) + float(row[4])
-        sum2 = float(row[5]) + float(row[6]) + float(row[7])
-        
-        firma = str(row[1]).strip().upper()
-        if "DUR" in firma:
-            cat1_dur += sum1
-            cat2_dur += sum2
-        elif "ZMES" in firma:
-            cat1_zmes += sum1
-            cat2_zmes += sum2
+        s1 = float(row[2]) + float(row[3]) + float(row[4])
+        s2 = float(row[5]) + float(row[6]) + float(row[7])
+        f = str(row[1]).strip().upper()
+        if "DUR" in f:
+            cat1_dur += s1; cat2_dur += s2
+        elif "ZMES" in f:
+            cat1_zmes += s1; cat2_zmes += s2
 
     celkem_val = df[10].sum()
     zakazek_cnt = int((df[0] > 0).sum())
@@ -197,9 +175,7 @@ if not df_raw.empty:
     html += '<th rowspan="2">Č.stavby</th><th rowspan="2">Název stavby</th><th rowspan="2">Nabídka</th><th rowspan="2">Rozdíl</th><th rowspan="2">Vyfaktur.</th>'
     html += '<th rowspan="2">Ukončení</th><th rowspan="2">Zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">Ze dne</th><th rowspan="2">Objednatel</th>'
     html += '<th rowspan="2">Stavbyved.</th><th rowspan="2">Nabídková c.</th><th rowspan="2">Č.faktury</th><th rowspan="2">Bez DPH</th><th rowspan="2">Splatná</th>'
-    html += '</tr><tr>'
-    html += '<th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th>'
-    html += '</tr></thead><tbody>'
+    html += '</tr><tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th></tr></thead><tbody>'
 
     for _, row in df.iterrows():
         html += '<tr>'
