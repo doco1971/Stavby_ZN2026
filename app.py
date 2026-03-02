@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. KONFIGURACE A EXTRÉMNĚ TLUSTÝ POSUVNÍK ---
+# --- 1. KONFIGURACE A EXTRÉMNÍ POSUVNÍK ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -18,23 +18,24 @@ st.markdown("""
     
     .stApp { background-color: #f4f6f8; }
     
-    /* EXTRÉMNĚ TLUSTÝ POSUVNÍK (30px) */
-    ::-webkit-scrollbar {
-        width: 30px !important; 
-        height: 30px !important;
-        display: block !important;
+    /* TOTÁLNÍ VYNUCENÍ TLUSTÉHO POSUVNÍKU PRO CELÝ PROHLÍŽEČ I TABULKU */
+    *::-webkit-scrollbar {
+        width: 40px !important; 
+        height: 40px !important;
     }
-    ::-webkit-scrollbar-track {
-        background: #e2e8f0 !important;
-        border: 2px solid #cbd5e1 !important;
+    *::-webkit-scrollbar-track {
+        background: #f1f1f1 !important;
     }
-    ::-webkit-scrollbar-thumb {
-        background: #475569 !important; /* Tmavě šedá pro viditelnost */
-        border-radius: 4px !important;
-        border: 5px solid #e2e8f0 !important;
+    *::-webkit-scrollbar-thumb {
+        background: #475569 !important;
+        border-radius: 0px !important;
+        border: 4px solid #f1f1f1 !important;
     }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #1e293b !important;
+    
+    /* Speciální zacílení na vnitřek Streamlit tabulky */
+    [data-testid="stDataTableVisualizer"] div {
+        scrollbar-width: thick !important; /* Pro Firefox */
+        scrollbar-color: #475569 #f1f1f1 !important;
     }
 
     /* KOMPAKTNÍ METRIKY */
@@ -49,12 +50,11 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. NAČTENÍ DAT (BEZ FILTROVÁNÍ ŘÁDKŮ) ---
+# --- 2. NAČTENÍ DAT ---
 @st.cache_data(ttl=2)
 def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
-        # Odstraníme pouze řádky, které jsou v celém Excelu úplně prázdné
         df = df.dropna(how='all')
         df.columns = [str(c).strip() for c in df.columns]
         
@@ -103,7 +103,7 @@ if not df_raw.empty:
     m4.metric("PROBÍHÁ", fmt_num(get_sum('probíh')))
     m5.metric("ZAKÁZEK", len(df_f))
 
-    # --- 5. STYLING A TABULKA (NASTAVENO NA 16 ŘÁDKŮ) ---
+    # --- 5. TABULKA (PEVNÝCH 16 ŘÁDKŮ) ---
     def style_row(row):
         styles = [''] * len(row)
         if col_stav:
@@ -124,11 +124,11 @@ if not df_raw.empty:
         if any(x in c.lower() for x in ['dne', 'ukončení']):
             df_f[c] = pd.to_datetime(df_f[c], errors='coerce').dt.strftime('%d.%m.%Y').replace('NaT', '')
 
-    # VÝŠKA NASTAVENA PRO 16 ŘÁDKŮ (CCA 450 PX)
+    # VÝŠKA NASTAVENA PRO 16 ŘÁDKŮ (530px je odzkoušený průměr)
     st.dataframe(
         df_f.style.apply(style_row, axis=1),
         use_container_width=True, 
-        height=450, 
+        height=530, 
         hide_index=True
     )
     
