@@ -69,9 +69,12 @@ st.markdown("""
         text-align: center;
         text-transform: none;
     }
-    .html-table td { border: 1px solid #000; padding: 4px 6px; white-space: nowrap; overflow: hidden; }
+    .html-table td { border: 1px solid #000; padding: 4px 8px; white-space: nowrap; overflow: hidden; }
     
+    /* ZAROVNÁNÍ */
     .num-align { text-align: right; }
+    .txt-align { text-align: left; }
+    .center-align { text-align: center; }
     .red-bold { color: #dc2626; font-weight: bold; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
@@ -106,7 +109,8 @@ def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
-        cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 10, 11, 12, 19, 21]
+        # Sloupce pro numerický převod (částky a čísla)
+        cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 19, 21]
         for col in cols_to_fix:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         df = df.fillna('')
@@ -115,31 +119,23 @@ def load_data():
 
 df_raw = load_data()
 
-# --- FUNKCE PRO RESET HLEDÁNÍ ---
 def reset_search():
     st.session_state.search_key = ""
 
 if not df_raw.empty:
-    # --- HLAVIČKA A HLEDÁNÍ ---
     c_h1, c_h2, c_h3 = st.columns([1, 3.5, 0.5])
-    with c_h1: 
-        st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
-    with c_h2: 
-        hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed", key="search_key")
-    with c_h3:
-        # Použití on_click pro bezpečné vymazání
-        st.button("❌", help="Smazat hledání", on_click=reset_search)
+    with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
+    with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed", key="search_key")
+    with c_h3: st.button("❌", help="Smazat hledání", on_click=reset_search)
 
     df = df_raw.copy()
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
-
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY (KAT I + KAT II) ---
+    # --- 4. VÝPOČTY ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
-
     for _, row in df.iterrows():
         sum1 = float(row[2]) + float(row[3]) + float(row[4])
         sum2 = float(row[5]) + float(row[6]) + float(row[7])
@@ -162,37 +158,40 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 6. HTML TABULKA ---
+    # --- 6. HTML TABULKA (23 SLOUPCŮ SE ZAROVNÁNÍM) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
-    html += '<col style="width:35px"><col style="width:90px">'
-    html += '<col style="width:115px">'*6
-    html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">'
-    html += '<col style="width:115px"><col style="width:115px">'
-    html += '<col style="width:85px">'*4
-    html += '<col style="width:110px">'*2
-    html += '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px">'
+    html += '<col style="width:45px">'  # Poř.č. (střed)
+    html += '<col style="width:90px">'  # Firma (vlevo)
+    html += '<col style="width:110px">'*6 # Kat I a II (vpravo)
+    html += '<col style="width:90px">'  # Č.stavby (vpravo)
+    html += '<col style="width:280px">' # Název stavby (vlevo)
+    html += '<col style="width:115px">'*3 # Nabídka, Rozdíl, Vyfaktur. (vpravo)
+    html += '<col style="width:95px">'*4 # Termíny a SOD (střed)
+    html += '<col style="width:130px">'*2 # Objednatel, Stavbyved. (vlevo)
+    html += '<col style="width:115px">' # Nabídková c. (vpravo)
+    html += '<col style="width:100px">' # Č.faktury (střed)
+    html += '<col style="width:115px">' # Bez DPH (vpravo)
+    html += '<col style="width:100px">' # Splatná (střed)
     html += '</colgroup>'
 
-    html += '<thead><tr>'
-    html += '<th rowspan="2">Poř.č.</th><th rowspan="2">Firma</th><th colspan="3">Kategorie I</th><th colspan="3">Kategorie II</th>'
+    html += '<thead><tr><th rowspan="2">Poř.č.</th><th rowspan="2">Firma</th><th colspan="3">Kategorie I</th><th colspan="3">Kategorie II</th>'
     html += '<th rowspan="2">Č.stavby</th><th rowspan="2">Název stavby</th><th rowspan="2">Nabídka</th><th rowspan="2">Rozdíl</th><th rowspan="2">Vyfaktur.</th>'
     html += '<th rowspan="2">Ukončení</th><th rowspan="2">Zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">Ze dne</th><th rowspan="2">Objednatel</th>'
     html += '<th rowspan="2">Stavbyved.</th><th rowspan="2">Nabídková c.</th><th rowspan="2">Č.faktury</th><th rowspan="2">Bez DPH</th><th rowspan="2">Splatná</th>'
-    html += '</tr><tr>'
-    html += '<th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th>'
-    html += '</tr></thead><tbody>'
+    html += '</tr><tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th></tr></thead><tbody>'
 
     for _, row in df.iterrows():
         html += '<tr>'
         for i in range(23):
             val = row[i]
-            td_cls = ""
-            if i == 0:
-                td_cls = ' class="num-align"'
-                val = int(val) if val != 0 else ""
-            elif i in [2,3,4,5,6,7,10,11,12,19,21]:
-                td_cls = ' class="num-align"'
+            # LOGIKA ZAROVNÁNÍ
+            if i in [0, 13, 14, 15, 16, 20, 22]: td_cls = ' class="center-align"'
+            elif i in [1, 9, 17, 18]: td_cls = ' class="txt-align"'
+            else: td_cls = ' class="num-align"'
+
+            if i == 0: val = int(val) if val != 0 else ""
+            elif i in [2,3,4,5,6,7,8,10,11,12,19,21]:
                 try:
                     n = float(val)
                     val = f"{n:,.2f}".replace(",", " ") if n != 0 else ""
@@ -201,6 +200,7 @@ if not df_raw.empty:
             elif i in [13, 14, 16, 22]:
                 try: val = pd.to_datetime(val).strftime('%d.%m.%Y')
                 except: val = ""
+            
             if str(val).lower() in ["nan", "none"]: val = ""
             html += f'<td{td_cls}>{val}</td>'
         html += '</tr>'
