@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. KONFIGURACE A EXTRÉMNĚ KOMPAKTNÍ DESIGN ---
+# --- 1. KONFIGURACE ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -9,56 +9,36 @@ st.markdown("""
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    
-    /* Odstranění horního okraje na absolutní minimum */
     .block-container { 
         padding-top: 0.5rem !important; 
-        padding-bottom: 0rem !important;
         padding-left: 1rem !important; 
         padding-right: 1rem !important; 
+        max-width: 100% !important; 
     }
-    
     .stApp { background-color: #f4f6f8; }
+    h4 { margin: 0; padding: 0; font-size: 1.1rem; color: #334155; }
     
-    /* Nadpis a hledání v jednom řádku */
-    .custom-header {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        margin-bottom: 10px;
-    }
-    
-    h4 { margin: 0; padding: 0; font-size: 1.1rem; color: #334155; white-space: nowrap; }
-    
-    /* Kompaktní okenka se součty */
+    /* Kompaktní metriky */
     div[data-testid="stMetric"] { 
         border: 1px solid #e2e8f0; 
         background-color: #ffffff;
-        padding: 4px 10px !important;
+        padding: 4px 8px !important;
         border-radius: 4px;
-        height: 50px !important;
+        height: 48px !important;
     }
-    div[data-testid="stMetricValue"] { 
-        font-size: 1rem !important; 
-        font-weight: 700 !important;
-    }
-    div[data-testid="stMetricLabel"] { 
-        font-size: 0.7rem !important;
-    }
-    
-    /* Odstranění mezer mezi bloky */
-    [data-testid="stVerticalBlock"] { gap: 0.5rem !important; }
+    div[data-testid="stMetricValue"] { font-size: 0.95rem !important; font-weight: 700 !important; }
+    div[data-testid="stMetricLabel"] { font-size: 0.65rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. NAČTENÍ DAT ---
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=2)
 def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
         df = df.dropna(how='all')
         df.columns = [str(c).strip() for c in df.columns]
-        # Filtr: pouze řádky, kde je v prvním sloupci hodnota
+        # Ponechat jen řádky, kde je pořadové číslo
         df = df[df[df.columns[0]].notna()]
         return df
     except:
@@ -72,24 +52,23 @@ if not df_raw.empty:
     col_rozdil = next((c for c in cols if 'rozdíl' in c.lower()), None)
     col_stav = next((c for c in cols if 'stav' in c.lower() and 'název' not in c.lower()), None)
 
-    # Převod na čísla
+    # Přísná konverze na čísla hned na začátku
     fin_cols = [c for c in [col_nabidka, col_rozdil] if c]
     for c in fin_cols:
-        df_raw[c] = pd.to_numeric(df_raw[c], errors='coerce').fillna(0)
+        df_raw[c] = pd.to_numeric(df_raw[c], errors='coerce').fillna(0).astype(float)
 
-    # Formátování dat (odstranění času)
+    # Formátování dat (textově pro stabilitu)
     for c in cols:
         if 'dne' in c.lower() or 'ukončení' in c.lower():
             df_raw[c] = pd.to_datetime(df_raw[c], errors='coerce').dt.strftime('%d.%m.%Y').replace('NaT', '')
 
-    # --- 3. LIŠTA: NADPIS + HLEDÁNÍ ---
+    # --- 3. LIŠTA A FILTR ---
     c1, c2 = st.columns([1, 3])
     with c1:
-        st.markdown("#### 🏗️ Evidence zakázek 2026")
+        st.markdown("#### 🏗️ Evidence 2026")
     with c2:
-        hledat = st.text_input("Hledat", label_visibility="collapsed", placeholder="Napište hledaný výraz (stav, jméno, název)...")
+        hledat = st.text_input("Hledat", label_visibility="collapsed", placeholder="Hledat (jméno, stav, zakázku)...")
 
-    # Filtrování (univerzální hledání)
     df_f = df_raw.copy()
     if hledat:
         df_f = df_f[df_f.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)]
@@ -110,7 +89,7 @@ if not df_raw.empty:
     m4.metric("PROBÍHÁ", fmt_num(get_sum('probíh')))
     m5.metric("ZAKÁZEK", len(df_f))
 
-    # --- 5. TABULKA (Nastavena na cca 16 řádků) ---
+    # --- 5. STYLING A TABULKA ---
     def style_row(row):
         styles = [''] * len(row)
         if col_stav:
@@ -126,17 +105,19 @@ if not df_raw.empty:
                 styles[idx] += '; color: #d00000; font-weight: bold;'
         return styles
 
-    # Vynucení formátu 0.00 pro finanční sloupce
-    column_configuration = {
+    # Vynucení 2 des. míst v konfiguraci sloupců
+    # "%.2f" říká Streamlitu: zobrazuj jen dvě desetinná místa a nic jiného
+    col_config = {
         c: st.column_config.NumberColumn(format="%.2f") for c in fin_cols
     }
 
+    # Zobrazení tabulky
     st.dataframe(
         df_f.style.apply(style_row, axis=1).format({c: "{:,.2f}".format for c in fin_cols}, thousands=" ", decimal="."),
         use_container_width=True, 
-        height=580, # Výška odpovídající cca 16 zakázkám
+        height=545, # Výška nastavená přesně na cca 16 řádků + hlavička
         hide_index=True,
-        column_config=column_configuration
+        column_config=col_config
     )
     
 else:
