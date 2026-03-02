@@ -2,14 +2,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE ---
+# --- 1. KONFIGURACE (ZACHOVÁNO) ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    
-    /* ÚPRAVA OKRAJŮ: Vlevo/Vpravo sníženo na 1.5rem */
     .block-container { 
         padding-top: 0.5rem !important; 
         padding-bottom: 0rem !important; 
@@ -17,9 +15,9 @@ st.markdown("""
         padding-right: 1.5rem !important;
         max-width: 100% !important;
     }
-    
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
+    /* Metriky */
     .metric-box {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
@@ -28,9 +26,11 @@ st.markdown("""
         text-align: center;
         margin-bottom: 10px;
     }
+    .cat-label { font-size: 0.6rem; color: #1f2937; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; }
     .metric-label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 1rem; font-weight: bold; color: #111827; }
 
+    /* TABULKA (ZACHOVÁNO 400PX) */
     .table-container { height: 400px; overflow: auto; border: 1px solid #000; }
     .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -45,7 +45,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA (23 SLOUPCŮ) ---
+# --- 2. DATA (ZACHOVÁNO 23 SLOUPCŮ) ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
@@ -66,21 +66,37 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. SOUČTY ---
+    # --- 3. SOUČTY (UPRAVENO DLE DOHODY) ---
     def get_sum(col_idx):
         return pd.to_numeric(df[col_idx], errors='coerce').fillna(0).sum()
 
-    m = st.columns(5)
-    labels = ["CELKEM", "HOTOVO", "FAKTURACE", "PROBÍHÁ", "ZAKÁZEK"]
-    total_val = get_sum(10)
-    count_val = len(df[df[0] != ''])
-
-    vals = [f"{total_val:,.2f}".replace(",", " ") + " Kč", "0.00 Kč", "0.00 Kč", "0.00 Kč", str(count_val)]
+    m = st.columns(6) # Rozšířeno na 6 sloupců pro nové boxy
     
-    for i in range(5):
-        m[i].markdown(f'<div class="metric-box"><div class="metric-label">{labels[i]}</div><div class="metric-value">{vals[i]}</div></div>', unsafe_allow_html=True)
+    # Výpočty
+    celkem_val = get_sum(10) # Nabídka
+    dur_val = get_sum(3)    # Sloupec K v Excelu (index 3)
+    zmes_val = get_sum(4)   # Sloupec L v Excelu (index 4)
+    zakazek_cnt = len(df[df[0] != ''])
 
-    # --- 4. HTML TABULKA ---
+    # 1. Box: CELKEM
+    m[0].markdown(f'<div class="metric-box"><div class="metric-label">CELKEM</div><div class="metric-value">{celkem_val:,.2f} Kč'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
+    
+    # 2. Box: DUR (Kategorie I)
+    m[1].markdown(f'<div class="metric-box"><div class="cat-label">KATEGORIE I</div><div class="metric-label">DUR</div><div class="metric-value">{dur_val:,.2f}'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
+    
+    # 3. Box: ZMES (Kategorie I)
+    m[2].markdown(f'<div class="metric-box"><div class="cat-label">KATEGORIE I</div><div class="metric-label">ZMES</div><div class="metric-value">{zmes_val:,.2f}'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
+    
+    # 4. Box: FAKTURACE
+    m[3].markdown(f'<div class="metric-box"><div class="metric-label">FAKTURACE</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
+    
+    # 5. Box: PROBÍHÁ
+    m[4].markdown(f'<div class="metric-box"><div class="metric-label">PROBÍHÁ</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
+    
+    # 6. Box: ZAKÁZEK
+    m[5].markdown(f'<div class="metric-box"><div class="metric-label">ZAKÁZEK</div><div class="metric-value">{zakazek_cnt}</div></div>', unsafe_allow_html=True)
+
+    # --- 4. HTML TABULKA (BEZ ZMĚN) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:40px"><col style="width:100px">' 
