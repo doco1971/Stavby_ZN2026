@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE A STYLY (TVŮJ ORIGINÁL) ---
+# --- 1. KONFIGURACE A STYLY ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -98,9 +98,9 @@ if not st.session_state.logged_in:
                 st.rerun()
             else:
                 st.error("Nesprávné jméno nebo heslo")
-    st.stop() # Tady kód končí, dokud se uživatel nepřihlásí
+    st.stop()
 
-# --- 3. DATA (TVŮJ ORIGINÁL) ---
+# --- 3. DATA ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
@@ -116,9 +116,19 @@ def load_data():
 df_raw = load_data()
 
 if not df_raw.empty:
-    c_h1, c_h2 = st.columns([1, 4])
-    with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
-    with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
+    # --- HLEDÁNÍ S RESETEM ---
+    if 'search_val' not in st.session_state:
+        st.session_state.search_val = ""
+
+    c_h1, c_h2, c_h3 = st.columns([1, 3.5, 0.5])
+    with c_h1: 
+        st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
+    with c_h2: 
+        hledat = st.text_input("", value=st.session_state.search_val, placeholder="Hledat...", label_visibility="collapsed", key="main_search")
+    with c_h3:
+        if st.button("❌", help="Smazat hledání"):
+            st.session_state.search_val = ""
+            st.rerun()
 
     df = df_raw.copy()
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
@@ -126,7 +136,7 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY (TVŮJ ORIGINÁL) ---
+    # --- 4. VÝPOČTY ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
 
@@ -152,7 +162,7 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 5. HTML TABULKA (TVŮJ ORIGINÁL) ---
+    # --- 5. HTML TABULKA ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:35px"><col style="width:90px">'
@@ -198,7 +208,6 @@ if not df_raw.empty:
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
-    # Odhlášení v bočním panelu
     if st.sidebar.button("Odhlásit"):
         st.session_state.logged_in = False
         st.rerun()
