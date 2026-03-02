@@ -2,197 +2,133 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE ---
+# --- 1. KONFIGURACE A STYLY (Vyladěno za 3 hodiny) ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    .block-container { 
-        padding-top: 0.5rem !important; 
-        padding-bottom: 0rem !important; 
-        padding-left: 1.5rem !important; 
-        padding-right: 1.5rem !important;
-        max-width: 100% !important;
-    }
-    .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
-    
+    .block-container { padding-top: 0.5rem; padding-left: 1.5rem; padding-right: 1.5rem; }
     .metric-box-styled {
-        border: 1px solid #d1d5db;
-        background-color: #f9fafb;
-        border-radius: 4px;
-        text-align: center;
-        margin-bottom: 10px;
-        width: 100%;
-        height: 75px;
-        display: flex;
-        flex-direction: column;
+        border: 1px solid #d1d5db; background-color: #f9fafb; border-radius: 4px;
+        text-align: center; margin-bottom: 10px; height: 80px; display: flex; flex-direction: column;
     }
-    .cat-header-main {
-        font-size: 0.65rem;
-        font-weight: bold;
-        background-color: #e5e7eb;
-        border-bottom: 1px solid #d1d5db;
-        padding: 4px 0;
-        text-transform: uppercase;
-        flex-shrink: 0;
-    }
-    .cat-content {
-        display: flex;
-        justify-content: space-around;
-        flex-grow: 1;
-        align-items: center;
-        padding: 2px 0;
-    }
-    .cat-sub-item { flex: 1; }
+    .cat-header-main { font-size: 0.75rem; font-weight: bold; background-color: #e5e7eb; padding: 5px; border-bottom: 1px solid #d1d5db; }
+    .metric-value { font-size: 1.1rem; font-weight: bold; color: #111827; margin: auto; }
     
-    .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; line-height: 1; }
-    .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
-
-    .table-container { 
-        height: 450px; 
-        overflow-y: auto; 
-        border: 1px solid #000; 
-    }
+    /* Kontejner pro 15 řádků + scrollbar (pamatuji si!) */
+    .table-container { height: 450px; overflow: auto; border: 1px solid #000; margin-top: 10px; }
     .table-container::-webkit-scrollbar { width: 25px; height: 25px; }
-    .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
-    .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
-
-    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; table-layout: fixed; }
-    .html-table th { 
-        position: sticky; 
-        top: 0; 
-        background-color: #f3f4f6; 
-        border: 1px solid #000; 
-        padding: 5px; 
-        z-index: 10; 
-        text-align: center;
-        text-transform: none; /* Aby zůstala velká písmena tak, jak je napíšeme */
-    }
-    .html-table td { border: 1px solid #000; padding: 4px 6px; white-space: nowrap; overflow: hidden; }
+    .table-container::-webkit-scrollbar-thumb { background: #888; border: 5px solid #f1f1f1; }
     
+    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; table-layout: fixed; }
+    .html-table th { position: sticky; top: 0; background-color: #f3f4f6; border: 1px solid #000; padding: 5px; z-index: 10; }
+    .html-table td { border: 1px solid #000; padding: 4px 6px; white-space: nowrap; overflow: hidden; }
     .num-align { text-align: right; }
     .red-bold { color: #dc2626; font-weight: bold; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA ---
+# --- 2. PŘIHLAŠOVACÍ SYSTÉM ---
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.role = None
+
+if not st.session_state.logged_in:
+    st.markdown("<h2 style='text-align: center;'>🔐 Vstup do systému Evidence 2026</h2>", unsafe_allow_html=True)
+    _, col_m, _ = st.columns([1, 1, 1])
+    with col_m:
+        u = st.text_input("Uživatel")
+        p = st.text_input("Heslo", type="password")
+        if st.button("Přihlásit se"):
+            if u == "admin" and p == "zn2026":
+                st.session_state.logged_in, st.session_state.role = True, "supervisor"
+                st.rerun()
+            elif u == "host" and p == "prohlizec":
+                st.session_state.logged_in, st.session_state.role = True, "user"
+                st.rerun()
+            else: st.error("Chyba přihlášení")
+    st.stop()
+
+# --- 3. DATA ---
+FILE_NAME = 'Soupis zakázek tabulka 2026_ZN.xlsx'
+
 @st.cache_data(ttl=1)
 def load_data():
     try:
-        df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
+        df = pd.read_excel(FILE_NAME, skiprows=5, header=None)
         df = df.iloc[:, :23]
-        cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 10, 11, 12, 19, 21]
-        for col in cols_to_fix:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-        df = df.fillna('')
-        return df
-    except: return pd.DataFrame()
+        cols_fix = [0, 2, 3, 4, 5, 6, 7, 10, 11, 12, 19, 21]
+        for c in cols_fix: df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
+        return df.fillna('')
+    except: return pd.DataFrame(columns=range(23))
 
-df_raw = load_data()
+if 'data' not in st.session_state:
+    st.session_state.data = load_data()
 
-if not df_raw.empty:
-    c_h1, c_h2 = st.columns([1, 4])
-    with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
-    with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
+# --- 4. VÝPOČTY (Dle vaší logiky DUR/ZMES) ---
+df_active = st.session_state.data[(st.session_state.data[0] > 0) | (st.session_state.data[9] != "")]
+c1_dur = c1_zmes = c2_dur = c2_zmes = 0.0
 
-    df = df_raw.copy()
-    df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
+for _, r in df_active.iterrows():
+    s1 = float(r[2]) + float(r[3]) + float(r[4])
+    s2 = float(r[5]) + float(r[6]) + float(r[7])
+    f = str(r[1]).strip().upper()
+    if "DUR" in f: c1_dur += s1; c2_dur += s2
+    elif "ZMES" in f: c1_zmes += s1; c2_zmes += s2
 
-    if hledat:
-        df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
+# --- 5. ZOBRAZENÍ METRIK ---
+st.sidebar.write(f"Role: **{st.session_state.role}**")
+if st.sidebar.button("Odhlásit"):
+    st.session_state.logged_in = False
+    st.rerun()
 
-    # --- 3. VÝPOČTY ---
-    cat1_dur, cat1_zmes = 0.0, 0.0
-    cat2_dur, cat2_zmes = 0.0, 0.0
+m = st.columns([1, 1.5, 1.5, 1, 0.8])
+m[0].markdown(f"<div class='metric-box-styled'><div class='cat-header-main'>Celkem Nabídka</div><div class='metric-value'>{df_active[10].sum():,.2f} Kč</div></div>".replace(",", " "), unsafe_allow_html=True)
+m[1].markdown(f"<div class='metric-box-styled'><div class='cat-header-main'>Kategorie I (DUR / ZMES)</div><div class='metric-value'>{c1_dur:,.2f} / {c1_zmes:,.2f}</div></div>".replace(",", " "), unsafe_allow_html=True)
+m[2].markdown(f"<div class='metric-box-styled'><div class='cat-header-main'>Kategorie II (DUR / ZMES)</div><div class='metric-value'>{c2_dur:,.2f} / {c2_zmes:,.2f}</div></div>".replace(",", " "), unsafe_allow_html=True)
+m[3].markdown(f"<div class='metric-box-styled'><div class='cat-header-main'>Probíhá</div><div class='metric-value'>0.00 Kč</div></div>", unsafe_allow_html=True)
+m[4].markdown(f"<div class='metric-box-styled'><div class='cat-header-main'>Zakázek</div><div class='metric-value'>{len(df_active[df_active[0]>0])}</div></div>", unsafe_allow_html=True)
 
-    for _, row in df.iterrows():
-        sum1 = float(row[2]) + float(row[3]) + float(row[4])
-        sum2 = float(row[5]) + float(row[6]) + float(row[7])
-        firma = str(row[1]).strip().upper()
-        if "DUR" in firma:
-            cat1_dur += sum1
-            cat2_dur += sum2
-        elif "ZMES" in firma:
-            cat1_zmes += sum1
-            cat2_zmes += sum2
+# --- 6. FORMULÁŘ (Jen pro Supervisor) ---
+if st.session_state.role == "supervisor":
+    with st.expander("➕ FORMULÁŘ PRO NOVOU STAVBU"):
+        with st.form("add_form", clear_on_submit=True):
+            f1, f2, f3 = st.columns(3)
+            with f1:
+                firma = st.selectbox("Firma", ["DUR plus", "ZMES"])
+                nazev = st.text_input("Název stavby")
+                c_stavby = st.text_input("Číslo stavby")
+            with f2:
+                k1_ps = st.number_input("Kat I - PS", 0.0)
+                k2_ps = st.number_input("Kat II - PS", 0.0)
+                nabidka = st.number_input("Nabídková cena", 0.0)
+            with f3:
+                stavbyved = st.text_input("Stavbyvedoucí")
+                termin = st.date_input("Termín ukončení")
+            
+            if st.form_submit_button("ULOŽIT DO DATABÁZE"):
+                # Logika přidání řádku do session_state
+                new_data = [len(st.session_state.data)+1, firma, k1_ps, 0, 0, k2_ps, 0, 0, c_stavby, nazev, nabidka, -nabidka, 0] + [""]*10
+                st.session_state.data.loc[len(st.session_state.data)] = new_data
+                st.success("Uloženo!")
+                st.rerun()
 
-    celkem_val = df[10].sum()
-    zakazek_cnt = int((df[0] > 0).sum())
+# --- 7. TABULKA (15 řádků + barvy) ---
+html = '<div class="table-container"><table class="html-table">'
+html += '<colgroup><col style="width:40px"><col style="width:90px">' + '<col style="width:115px">'*6 + '<col style="width:90px"><col style="width:250px">' + '<col style="width:115px">'*3 + '</colgroup>'
+html += '<thead><tr><th>Poř.č.</th><th>Firma</th><th>K1 PS</th><th>K1 SNK</th><th>K1 BO</th><th>K2 PS</th><th>K2 BO</th><th>K2 Poruch</th><th>Č.stavby</th><th>Název stavby</th><th>Nabídka</th><th>Rozdíl</th><th>Vyfaktur.</th></tr></thead><tbody>'
 
-    # --- METRIKY (OPRAVENÉ NÁZVY) ---
-    m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
-    m[0].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Celkem Nabídka</div><div class="cat-content"><div class="metric-value">{celkem_val:,.2f} Kč</div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
-    m[1].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
-    m[2].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie II</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat2_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat2_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
-    m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
-    m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
-
-    # --- 4. HTML TABULKA (OPRAVENÉ HLAVIČKY) ---
-    html = '<div class="table-container"><table class="html-table">'
-    html += '<colgroup>'
-    html += '<col style="width:35px">'
-    html += '<col style="width:90px">'
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
-    html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">' 
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:85px">' 
-    html += '<col style="width:85px"><col style="width:85px"><col style="width:85px">' 
-    html += '<col style="width:110px"><col style="width:110px"><col style="width:115px">' 
-    html += '<col style="width:100px"><col style="width:115px"><col style="width:100px">' 
-    html += '</colgroup>'
-
-    # Definice hlavičky s velkými počátečními písmeny
-    html += '<thead>'
+for _, r in df_active.iterrows():
     html += '<tr>'
-    html += '<th rowspan="2">Poř.č.</th>'
-    html += '<th rowspan="2">Firma</th>'
-    html += '<th colspan="3">Kategorie I</th>'
-    html += '<th colspan="3">Kategorie II</th>'
-    html += '<th rowspan="2">Č.stavby</th>'
-    html += '<th rowspan="2">Název stavby</th>'
-    html += '<th rowspan="2">Nabídka</th>'
-    html += '<th rowspan="2">Rozdíl</th>'
-    html += '<th rowspan="2">Vyfaktur.</th>'
-    html += '<th rowspan="2">Ukončení</th>'
-    html += '<th rowspan="2">Zrealiz.</th>'
-    html += '<th rowspan="2">SOD</th>'
-    html += '<th rowspan="2">Ze dne</th>'
-    html += '<th rowspan="2">Objednatel</th>'
-    html += '<th rowspan="2">Stavbyved.</th>'
-    html += '<th rowspan="2">Nabídková c.</th>'
-    html += '<th rowspan="2">Č.faktury</th>'
-    html += '<th rowspan="2">Bez DPH</th>'
-    html += '<th rowspan="2">Splatná</th>'
+    for i in range(13):
+        val = r[i]
+        td_cls = ' class="num-align"' if i in [0,2,3,4,5,6,7,10,11,12] else ""
+        if i == 11 and float(val or 0) < 0: td_cls = ' class="red-bold"'
+        if i in [2,3,4,5,6,7,10,11,12] and val != 0: 
+            val = f"{float(val):,.2f}".replace(",", " ")
+        elif val == 0: val = ""
+        html += f'<td{td_cls}>{val}</td>'
     html += '</tr>'
-    html += '<tr>'
-    html += '<th>PS</th><th>SNK</th><th>BO</th>' # Pod-hlavičky Kat I
-    html += '<th>PS</th><th>BO</th><th>Poruch</th>' # Pod-hlavičky Kat II
-    html += '</tr>'
-    html += '</thead><tbody>'
-
-    for _, row in df.iterrows():
-        html += '<tr>'
-        for i in range(23):
-            val = row[i]
-            td_cls = ""
-            if i == 0:
-                td_cls = ' class="num-align"'
-                val = int(val) if val != 0 else ""
-            elif i in [2,3,4,5,6,7,10,11,12,19,21]:
-                td_cls = ' class="num-align"'
-                try:
-                    n = float(val)
-                    val = f"{n:,.2f}".replace(",", " ") if n != 0 else ""
-                    if i == 11 and n < 0: td_cls = ' class="red-bold"'
-                except: val = ""
-            elif i in [13, 14, 16, 22]:
-                try: val = pd.to_datetime(val).strftime('%d.%m.%Y')
-                except: val = ""
-            if str(val).lower() in ["nan", "none"]: val = ""
-            html += f'<td{td_cls}>{val}</td>'
-        html += '</tr>'
-    html += '</tbody></table></div>'
-    st.markdown(html, unsafe_allow_html=True)
-else:
-    st.error("Data nenalezena.")
+html += '</tbody></table></div>'
+st.markdown(html, unsafe_allow_html=True)
