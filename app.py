@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE (ZACHOVÁNO) ---
+# --- 1. KONFIGURACE ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -29,16 +29,13 @@ st.markdown("""
         justify-content: center;
     }
 
-    /* ZÚŽENÝ SPOJENÝ BOX KATEGORIE I */
     .cat-box-double {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
         border-radius: 4px;
         text-align: center;
         margin-bottom: 10px;
-        max-width: 250px; /* Omezení maximální šířky */
-        margin-left: auto;
-        margin-right: auto;
+        width: 100%;
     }
     .cat-header-main {
         font-size: 0.65rem;
@@ -58,7 +55,6 @@ st.markdown("""
     .metric-label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
-    /* TABULKA (ZACHOVÁNO) */
     .table-container { height: 400px; overflow: auto; border: 1px solid #000; }
     .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -73,13 +69,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA (ZACHOVÁNO) ---
+# --- 2. DATA ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
-        for col in [2, 3, 4, 10, 11, 12]:
+        # Ošetření číselných sloupců (Kat I: 2-4, Kat II: 5-7, Nabídka: 10)
+        for col in [2, 3, 4, 5, 6, 7, 10, 11, 12]:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         return df
     except: return pd.DataFrame()
@@ -95,44 +92,59 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. DYNAMICKÉ SOUČTY (ZAFIXOVANÁ LOGIKA) ---
-    dur_val = 0.0
-    zmes_val = 0.0
+    # --- 3. VÝPOČTY (KAT I i KAT II) ---
+    cat1_dur, cat1_zmes = 0.0, 0.0
+    cat2_dur, cat2_zmes = 0.0, 0.0
 
     for _, row in df.iterrows():
-        line_sum = float(row[2]) + float(row[3]) + float(row[4])
+        # Kategorie I (indexy 2,3,4)
+        sum1 = float(row[2]) + float(row[3]) + float(row[4])
+        # Kategorie II (indexy 5,6,7)
+        sum2 = float(row[5]) + float(row[6]) + float(row[7])
+        
         firma = str(row[1]).strip().upper()
         if "DUR" in firma:
-            dur_val += line_sum
+            cat1_dur += sum1
+            cat2_dur += sum2
         elif "ZMES" in firma:
-            zmes_val += line_sum
+            cat1_zmes += sum1
+            cat2_zmes += sum2
 
     celkem_val = df[10].sum()
     zakazek_cnt = len(df[df[0] != ''])
 
-    # --- ZOBRAZENÍ METRIK (UPRAVENÉ POMĚRY SLOUPCŮ) ---
-    m = st.columns([1.2, 1.6, 1.2, 1.2, 1]) # Sloupec pro Kat. I zúžen z 2.2 na 1.6
+    # --- ZOBRAZENÍ METRIK ---
+    m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
     
+    # 1. CELKEM
     m[0].markdown(f'<div class="metric-box"><div class="metric-label">CELKEM</div><div class="metric-value">{celkem_val:,.2f} Kč'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
     
+    # 2. KATEGORIE I
     m[1].markdown(f'''
         <div class="cat-box-double">
             <div class="cat-header-main">KATEGORIE I</div>
             <div class="cat-content">
-                <div class="cat-sub-item">
-                    <div class="metric-label">DUR</div>
-                    <div class="metric-value">{dur_val:,.2f}</div>
-                </div>
-                <div class="cat-sub-item" style="border-left: 1px solid #d1d5db;">
-                    <div class="metric-label">ZMES</div>
-                    <div class="metric-value">{zmes_val:,.2f}</div>
-                </div>
+                <div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div>
+                <div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div>
+            </div>
+        </div>
+    '''.replace(",", " "), unsafe_allow_html=True)
+
+    # 3. KATEGORIE II (místo Fakturace)
+    m[2].markdown(f'''
+        <div class="cat-box-double">
+            <div class="cat-header-main">KATEGORIE II</div>
+            <div class="cat-content">
+                <div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat2_dur:,.2f}</div></div>
+                <div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat2_zmes:,.2f}</div></div>
             </div>
         </div>
     '''.replace(",", " "), unsafe_allow_html=True)
     
-    m[2].markdown(f'<div class="metric-box"><div class="metric-label">FAKTURACE</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
+    # 4. PROBÍHÁ
     m[3].markdown(f'<div class="metric-box"><div class="metric-label">PROBÍHÁ</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
+    
+    # 5. ZAKÁZEK
     m[4].markdown(f'<div class="metric-box"><div class="metric-label">ZAKÁZEK</div><div class="metric-value">{zakazek_cnt}</div></div>', unsafe_allow_html=True)
 
     # --- 4. HTML TABULKA (ZACHOVÁNO) ---
