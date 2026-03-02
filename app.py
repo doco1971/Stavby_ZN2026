@@ -58,29 +58,31 @@ st.markdown("""
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
-    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; table-layout: fixed; }
+    .html-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: sans-serif; font-size: 12px; table-layout: fixed; }
     
-    /* OPRAVA FIXNÍ HLAVIČKY */
+    /* FIXNÍ HLAVIČKA S VIDITELNÝMI ČÁRAMI */
     .html-table th { 
         position: sticky; 
         background-color: #f3f4f6; 
-        border: 1px solid #000; 
+        border-right: 1px solid #000;
+        border-bottom: 1px solid #000;
         padding: 5px; 
         z-index: 10; 
         text-align: center;
     }
-    /* První řada hlavičky */
-    .html-table thead tr:nth-child(1) th {
-        top: 0;
-        z-index: 11;
-    }
-    /* Druhá řada hlavičky (pod-hlavičky) - musí být posunutá o výšku té první */
-    .html-table thead tr:nth-child(2) th {
-        top: 29px; /* Odhadovaná výška prvního řádku */
-        z-index: 11;
-    }
+    .html-table thead tr:nth-child(1) th { top: 0; z-index: 12; border-top: 1px solid #000; }
+    .html-table thead tr:nth-child(2) th { top: 29px; z-index: 12; }
     
-    .html-table td { border: 1px solid #000; padding: 4px 8px; white-space: nowrap; overflow: hidden; }
+    /* První sloupec v hlavičce musí mít taky levý okraj */
+    .html-table th:first-child, .html-table td:first-child { border-left: 1px solid #000; }
+
+    .html-table td { 
+        border-right: 1px solid #000; 
+        border-bottom: 1px solid #000; 
+        padding: 4px 8px; 
+        white-space: nowrap; 
+        overflow: hidden; 
+    }
     
     .num-align { text-align: right; }
     .txt-align { text-align: left; }
@@ -140,15 +142,12 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY (Dle Saved Info) ---
+    # --- 4. VÝPOČTY ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
     for _, row in df.iterrows():
-        # Kategorie I: PS(2) + SNK(3) + BO(4)
         sum1 = float(row[2]) + float(row[3]) + float(row[4])
-        # Kategorie II: PS(5) + BO(6) + Poruch(7)
         sum2 = float(row[5]) + float(row[6]) + float(row[7])
-        
         firma = str(row[1]).strip().upper()
         if "DUR" in firma:
             cat1_dur += sum1
@@ -168,21 +167,15 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 6. HTML TABULKA (Opravené CSS a zarovnání) ---
+    # --- 6. HTML TABULKA ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
-    html += '<col style="width:45px">'  # 0: Poř.č.
-    html += '<col style="width:95px">'  # 1: Firma
-    html += '<col style="width:110px">'*6 # 2-7: Kat I a II
-    html += '<col style="width:90px">'  # 8: Č.stavby
-    html += '<col style="width:280px">' # 9: Název stavby
-    html += '<col style="width:115px">'*3 # 10-12: Nabídka, Rozdíl, Vyfaktur.
-    html += '<col style="width:95px">'*4 # 13-16: Ukončení, Zrealiz, SOD, Ze dne
-    html += '<col style="width:130px">'*2 # 17-18: Objednatel, Stavbyved.
-    html += '<col style="width:115px">' # 19: Nabídková c.
-    html += '<col style="width:100px">' # 20: Č.faktury
-    html += '<col style="width:115px">' # 21: Bez DPH
-    html += '<col style="width:100px">' # 22: Splatná
+    html += '<col style="width:45px"><col style="width:95px">'
+    html += '<col style="width:110px">'*6
+    html += '<col style="width:90px"><col style="width:280px"><col style="width:115px">'*3
+    html += '<col style="width:95px">'*4
+    html += '<col style="width:130px">'*2
+    html += '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px">'
     html += '</colgroup>'
 
     html += '<thead><tr>'
@@ -198,12 +191,10 @@ if not df_raw.empty:
         html += '<tr>'
         for i in range(23):
             val = row[i]
-            # Zarovnání dle typu dat
             if i in [0, 13, 14, 15, 16, 20, 22]: td_cls = ' class="center-align"'
             elif i in [1, 9, 17, 18]: td_cls = ' class="txt-align"'
             else: td_cls = ' class="num-align"'
 
-            # Formátování čísel a dat
             if i == 0: val = int(val) if val != 0 else ""
             elif i in [2,3,4,5,6,7,8,10,11,12,19,21]:
                 try:
