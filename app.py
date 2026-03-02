@@ -58,30 +58,52 @@ st.markdown("""
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
-    .html-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: sans-serif; font-size: 12px; table-layout: fixed; }
+    /* OPRAVENÁ TABULKA PRO STICKY ČÁRY */
+    .html-table { 
+        width: 100%; 
+        border-collapse: separate; 
+        border-spacing: 0; 
+        font-family: sans-serif; 
+        font-size: 12px; 
+        table-layout: fixed; 
+    }
     
-    /* FIXNÍ HLAVIČKA S VIDITELNÝMI ČÁRAMI */
+    /* Box-shadow místo borderu zajistí, že čáry nezmizí */
+    .html-table th, .html-table td {
+        border: none;
+        box-shadow: inset -1px -1px 0px #000; /* Pravá a spodní čára */
+        padding: 4px 8px;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    /* Levý okraj pro celou tabulku */
+    .html-table th:first-child, .html-table td:first-child {
+        box-shadow: inset 1px -1px 0px #000, inset -1px -1px 0px #000;
+    }
+
     .html-table th { 
         position: sticky; 
         background-color: #f3f4f6; 
-        border-right: 1px solid #000;
-        border-bottom: 1px solid #000;
-        padding: 5px; 
         z-index: 10; 
         text-align: center;
+        font-weight: bold;
     }
-    .html-table thead tr:nth-child(1) th { top: 0; z-index: 12; border-top: 1px solid #000; }
-    .html-table thead tr:nth-child(2) th { top: 29px; z-index: 12; }
-    
-    /* První sloupec v hlavičce musí mít taky levý okraj */
-    .html-table th:first-child, .html-table td:first-child { border-left: 1px solid #000; }
 
-    .html-table td { 
-        border-right: 1px solid #000; 
-        border-bottom: 1px solid #000; 
-        padding: 4px 8px; 
-        white-space: nowrap; 
-        overflow: hidden; 
+    /* Horní okraj pro první řadu hlavičky */
+    .html-table thead tr:nth-child(1) th { 
+        top: 0; 
+        z-index: 12; 
+        box-shadow: inset -1px -1px 0px #000, inset 0px 1px 0px #000;
+    }
+    .html-table thead tr:nth-child(1) th:first-child {
+        box-shadow: inset 1px 1px 0px #000, inset -1px -1px 0px #000;
+    }
+
+    /* Druhá řada hlavičky */
+    .html-table thead tr:nth-child(2) th { 
+        top: 29px; 
+        z-index: 12; 
     }
     
     .num-align { text-align: right; }
@@ -172,7 +194,8 @@ if not df_raw.empty:
     html += '<colgroup>'
     html += '<col style="width:45px"><col style="width:95px">'
     html += '<col style="width:110px">'*6
-    html += '<col style="width:90px"><col style="width:280px"><col style="width:115px">'*3
+    html += '<col style="width:90px"><col style="width:280px"><col style="width:115px">'
+    html += '<col style="width:115px"><col style="width:115px">'
     html += '<col style="width:95px">'*4
     html += '<col style="width:130px">'*2
     html += '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px">'
@@ -200,7 +223,7 @@ if not df_raw.empty:
                 try:
                     n = float(val)
                     val = f"{n:,.2f}".replace(",", " ") if n != 0 else ""
-                    if i == 11 and n < 0: td_cls = ' class="red-bold"'
+                    if i == 11 and n < 0: td_cls += " red-bold"
                 except: val = ""
             elif i in [13, 14, 16, 22]:
                 try: val = pd.to_datetime(val).strftime('%d.%m.%Y')
