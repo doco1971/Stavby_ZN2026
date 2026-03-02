@@ -9,12 +9,22 @@ st.markdown("""
     <style>
     header {visibility: hidden;}
     .block-container { padding: 0.5rem !important; }
-    .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.5rem; }
+    .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
-    /* TABULKA KONTEJNER - 16 ŘÁDKŮ */
+    /* Metriky */
+    .metric-box {
+        border: 1px solid #d1d5db;
+        background-color: #f9fafb;
+        padding: 5px 10px;
+        border-radius: 4px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .metric-label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; }
+    .metric-value { font-size: 1rem; font-weight: bold; color: #111827; }
+
+    /* TABULKA */
     .table-container { height: 400px; overflow: auto; border: 1px solid #000; }
-    
-    /* MASIVNÍ POSUVNÍK */
     .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 5px solid #f1f1f1; }
@@ -28,12 +38,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA (PŘESNĚ 23 SLOUPCŮ) ---
+# --- 2. DATA ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
-        df = df.iloc[:, :23] # Vezmeme přesně 23 sloupců
+        df = df.iloc[:, :23]
         df = df.replace({np.nan: '', 'nan': '', 'NaT': '', 'None': ''})
         return df
     except: return pd.DataFrame()
@@ -41,29 +51,52 @@ def load_data():
 df_raw = load_data()
 
 if not df_raw.empty:
-    # Horní lišta
+    # Horní lišta: Nadpis a Hledání
     c_h1, c_h2 = st.columns([1, 4])
     with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
     with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
 
     df = df_raw.copy()
     if hledat:
-        df = df[df.apply(lambda r: hledat.lower() in str(r.values).lower(), axis=1)]
+        df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. HTML TABULKA S COLGROUP (ŠÍŘKY) ---
-    html = '<div class="table-container"><table class="html-table">'
+    # --- 3. SOUČTY (METRIKY) ---
+    def get_sum(col_idx):
+        return pd.to_numeric(df[col_idx], errors='coerce').fillna(0).sum()
+
+    m = st.columns(5)
+    labels = ["CELKEM", "HOTOVO", "FAKTURACE", "PROBÍHÁ", "ZAKÁZEK"]
     
-    # Definice šířek (PS, SNK, BO mají 90px)
+    # Výpočty (index 10 je sloupec 'nabídka')
+    total_val = get_sum(10)
+    # Pro počet zakázek počítáme jen řádky, kde je vyplněné pořadové číslo
+    count_val = len(df[df[0] != ''])
+
+    vals = [
+        f"{total_val:,.2f}".replace(",", " ") + " Kč",
+        "0.00 Kč", "0.00 Kč", "0.00 Kč", 
+        str(count_val)
+    ]
+    
+    for i in range(5):
+        m[i].markdown(f'''
+            <div class="metric-box">
+                <div class="metric-label">{labels[i]}</div>
+                <div class="metric-value">{vals[i]}</div>
+            </div>
+        ''', unsafe_allow_html=True)
+
+    # --- 4. HTML TABULKA ---
+    html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:40px"><col style="width:100px">' # poř, firma
     html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' # Kat I
     html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' # Kat II
     html += '<col style="width:90px"><col style="width:250px">' # č.stavby, název
-    html += '<col style="width:100px"><col style="width:100px"><col style="width:100px">' # nabídka, rozdíl, vyfakt
+    html += '<col style="width:100px"><col style="width:100px"><col style="width:100px">' # nab, roz, vyf
     html += '<col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px">'
     html += '</colgroup>'
 
-    # Hlavička (Dvouúrovňová)
     html += '<thead><tr>'
     html += '<th rowspan="2">poř.č.</th><th rowspan="2">firma</th>'
     html += '<th colspan="3">kategorie i</th><th colspan="3">kategorie ii</th>'
@@ -73,14 +106,11 @@ if not df_raw.empty:
     html += '<th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>poruch</th>'
     html += '</tr></thead><tbody>'
 
-    # Data
     for _, row in df.iterrows():
         html += '<tr>'
         for i in range(23):
             val = row[i]
             td_cls = ""
-            
-            # Formát peněz (sloupce 2-7, 10-12, 19, 21)
             if i in [2,3,4,5,6,7,10,11,12,19,21]:
                 try:
                     n = float(val)
@@ -88,11 +118,9 @@ if not df_raw.empty:
                     td_cls = ' class="num-align"'
                     if i == 11 and n < 0: td_cls = ' class="red-bold"'
                 except: pass
-            # Formát dat (13, 14, 16, 22)
             elif i in [13, 14, 16, 22]:
                 try: val = pd.to_datetime(val).strftime('%d.%m.%Y')
                 except: pass
-
             html += f'<td{td_cls}>{val}</td>'
         html += '</tr>'
     
