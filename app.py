@@ -36,12 +36,11 @@ st.markdown("""
     .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
-    /* KONTEJNER TABULKY - Horní a levý okraj celku */
+    /* KONTEJNER TABULKY */
     .table-container { 
         height: 450px; 
         overflow: auto; 
-        border-top: 1px solid #000;
-        border-left: 1px solid #000;
+        border: 1px solid #000;
         background-color: white;
     }
     
@@ -49,32 +48,31 @@ st.markdown("""
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
+    /* TABULKA - ČISTÝ COLLAPSE */
     .html-table { 
         width: 100%; 
-        border-collapse: separate; 
-        border-spacing: 0; 
+        border-collapse: collapse; /* Toto zaručí JEDNU čáru */
         font-family: sans-serif; 
         font-size: 12px; 
         table-layout: fixed;
     }
     
-    /* ČISTÁ JEDNODUCHÁ ČÁRA: Pouze vpravo a dole */
     .html-table th, .html-table td {
+        border: 1px solid #000; /* Standardní tenká čára */
         padding: 4px 8px;
         white-space: nowrap;
         overflow: hidden;
-        background-color: white;
-        /* Box-shadow simuluje border, který nemizí, ale vykreslíme ho jen na 2 stranách */
-        box-shadow: inset -1px -1px 0px #000; 
     }
 
-    /* FIXNÍ HLAVIČKA */
+    /* FIXNÍ HLAVIČKA - Speciální fix pro border v režimu collapse */
     .html-table th { 
         position: sticky; 
         background-color: #f3f4f6 !important; 
         z-index: 10; 
         text-align: center;
         font-weight: bold;
+        /* Nutné pro sticky th v režimu collapse */
+        background-clip: padding-box;
     }
 
     .html-table thead tr:nth-child(1) th { top: 0; z-index: 20; }
@@ -138,12 +136,10 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY ---
+    # --- 4. VÝPOČTY (Suma Kat I: PS+SNK+BO, Kat II: PS+BO+Poruch) ---
     cat1_dur = cat1_zmes = cat2_dur = cat2_zmes = 0.0
     for _, row in df.iterrows():
-        # Kategorie I (PS + SNK + BO)
         s1 = float(row[2]) + float(row[3]) + float(row[4])
-        # Kategorie II (PS + BO + Poruch)
         s2 = float(row[5]) + float(row[6]) + float(row[7])
         f = str(row[1]).strip().upper()
         if "DUR" in f: cat1_dur += s1; cat2_dur += s2
