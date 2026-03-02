@@ -16,7 +16,7 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* SJEDNOCENÉ METRIKY - PEVNÁ VÝŠKA */
+    /* SJEDNOCENÉ METRIKY - PEVNÁ VÝŠKA 100px */
     .metric-box-styled {
         border: 1px solid #d1d5db;
         background-color: #ffffff;
@@ -84,7 +84,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. PŘIHLAŠOVACÍ SYSTÉM ---
+# --- 2. DATA A PŘIHLAŠOVÁNÍ ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
@@ -100,7 +100,6 @@ if not st.session_state.logged_in:
                 st.rerun()
     st.stop()
 
-# --- 3. DATA A VYHLEDÁVÁNÍ ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
@@ -115,18 +114,20 @@ def load_data():
 
 df_raw = load_data()
 
+# --- 3. VYHLEDÁVÁNÍ (Znovu funkční) ---
 if not df_raw.empty:
-    # Hlava s vyhledáváním
     c_h1, c_h2, c_h3 = st.columns([1.5, 3, 0.5])
     with c_h1: st.markdown('<div style="font-size:1.1rem; font-weight:bold;">Evidence 2026</div>', unsafe_allow_html=True)
-    with c_h2: hledat = st.text_input("", placeholder="Hledat v tabulce...", label_visibility="collapsed", key="s_key")
+    with c_h2: hledat = st.text_input("", placeholder="Hledat v tabulce...", label_visibility="collapsed", key="search_bar")
     with c_h3: 
         if st.button("❌"):
-            st.session_state.s_key = ""
             st.rerun()
 
     df = df_raw.copy()
+    # Filtrování prázdných řádků
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
+    
+    # Samotné vyhledávání
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
@@ -142,15 +143,20 @@ if not df_raw.empty:
     celkem_val = df[10].sum()
     zakazek_cnt = int((df[0] > 0).sum())
 
-    # --- 5. METRIKY (Sjednocené výšky) ---
+    # --- 5. METRIKY (Sjednocená výška 100px) ---
     m1, m2, m3, m4, m5 = st.columns([1, 1.5, 1.5, 1, 0.8]) 
+    
     m1.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Celkem Nabídka</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-value">{celkem_val:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    
     m2.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div><div class="v-line"></div></div><div class="cat-sub-item"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    
     m3.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie II</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat2_dur:,.2f}</div><div class="v-line"></div></div><div class="cat-sub-item"><div class="metric-label">ZMES</div><div class="metric-value">{cat2_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    
     m4.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-value">0.00</div></div></div></div>''', unsafe_allow_html=True)
+    
     m5.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-value">{zakazek_cnt}</div></div></div></div>''', unsafe_allow_html=True)
 
-    # --- 6. TABULKA ---
+    # --- 6. TABULKA (Fixní hlavička a mřížka) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup><col style="width:45px"><col style="width:95px"><col style="width:110px" span="6"><col style="width:90px"><col style="width:280px"><col style="width:115px" span="3"><col style="width:95px" span="4"><col style="width:130px" span="2"><col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px"></colgroup>'
     html += '<thead><tr><th rowspan="2">Poř.č.</th><th rowspan="2">Firma</th><th colspan="3">Kategorie I</th><th colspan="3">Kategorie II</th><th rowspan="2">Č.stavby</th><th rowspan="2">Název stavby</th><th rowspan="2">Nabídka</th><th rowspan="2">Rozdíl</th><th rowspan="2">Vyfaktur.</th><th rowspan="2">Ukončení</th><th rowspan="2">Zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">Ze dne</th><th rowspan="2">Objednatel</th><th rowspan="2">Stavbyved.</th><th rowspan="2">Nabídková c.</th><th rowspan="2">Č.faktury</th><th rowspan="2">Bez DPH</th><th rowspan="2">Splatná</th></tr><tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th></tr></thead><tbody>'
@@ -160,6 +166,7 @@ if not df_raw.empty:
         for i in range(23):
             val = row[i]
             td_cls = ' class="center-align"' if i in [0, 13, 14, 15, 16, 20, 22] else (' class="txt-align"' if i in [1, 9, 17, 18] else ' class="num-align"')
+            
             if i == 0: val = int(val) if val != 0 else ""
             elif i in [2,3,4,5,6,7,8,10,11,12,19,21]:
                 try: 
@@ -170,9 +177,11 @@ if not df_raw.empty:
             elif i in [13, 14, 16, 22]:
                 try: val = pd.to_datetime(val).strftime('%d.%m.%Y')
                 except: val = ""
+            
             html += f'<td{td_cls}>{val}</td>'
-        html += '</tr></tbody></table></div>'
+        html += '</tr>'
     
+    html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
     if st.sidebar.button("Odhlásit"):
