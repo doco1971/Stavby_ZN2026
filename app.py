@@ -17,6 +17,7 @@ st.markdown("""
     }
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
+    /* Metriky nad tabulkou */
     .metric-box-styled {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
@@ -45,20 +46,21 @@ st.markdown("""
         padding: 2px 0;
     }
     .cat-sub-item { flex: 1; }
-    
     .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; line-height: 1; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
+    /* KONTEJNER TABULKY */
     .table-container { 
         height: 450px; 
         overflow-y: auto; 
-        border: 1px solid #000;
+        border-top: 1px solid #000;
+        border-left: 1px solid #000;
     }
     .table-container::-webkit-scrollbar { width: 25px; height: 25px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
-    /* FINÁLNÍ ÚPRAVA ČAR BEZ STÍNŮ */
+    /* TABULKA A ČÁRY */
     .html-table { 
         width: 100%; 
         border-collapse: separate; 
@@ -68,39 +70,29 @@ st.markdown("""
         table-layout: fixed;
     }
     
-    /* Čáry pro tělo tabulky */
-    .html-table td {
+    .html-table th, .html-table td {
         border-right: 1px solid #000;
         border-bottom: 1px solid #000;
         padding: 4px 8px;
         white-space: nowrap;
         overflow: hidden;
+        /* Klíč k tomu, aby čáry nemizely pod barvou pozadí */
+        background-clip: padding-box; 
     }
 
-    /* Čáry pro hlavičku - sticky kompatibilní */
+    /* FIXNÍ HLAVIČKA */
     .html-table th { 
         position: sticky; 
         background-color: #f3f4f6; 
-        z-index: 10; 
+        z-index: 20; 
         text-align: center;
         font-weight: bold;
-        border-right: 1px solid #000;
-        border-bottom: 1px solid #000;
     }
 
-    /* První řada hlavičky */
-    .html-table thead tr:nth-child(1) th { 
-        top: 0; 
-        z-index: 12;
-    }
-
-    /* Druhá řada hlavičky */
-    .html-table thead tr:nth-child(2) th { 
-        top: 29px; 
-        z-index: 12; 
-    }
+    .html-table thead tr:nth-child(1) th { top: 0; }
+    .html-table thead tr:nth-child(2) th { top: 29px; } /* Výška prvního řádku hlavičky */
     
-    /* Zarovnání */
+    /* ZAROVNÁNÍ OBSAHU */
     .num-align { text-align: right; }
     .txt-align { text-align: left; }
     .center-align { text-align: center; }
@@ -136,6 +128,7 @@ def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
+        # Převod vybraných sloupců na čísla
         cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 19, 21]
         for col in cols_to_fix:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -155,25 +148,26 @@ if not df_raw.empty:
     with c_h3: st.button("❌", help="Smazat hledání", on_click=reset_search)
 
     df = df_raw.copy()
+    # Zobrazení pouze relevantních řádků
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY (Dle uložených informací) ---
+    # --- 4. VÝPOČTY ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
     for _, row in df.iterrows():
-        # Kategorie I (PS + SNK + BO)
+        # Kategorie I: PS(2) + SNK(3) + BO(4)
         sum1 = float(row[2]) + float(row[3]) + float(row[4])
-        # Kategorie II (PS + BO + Poruch)
+        # Kategorie II: PS(5) + BO(6) + Poruch(7)
         sum2 = float(row[5]) + float(row[6]) + float(row[7])
         
         firma = str(row[1]).strip().upper()
         if "DUR" in firma:
-            cat1_dur += sum1 #
+            cat1_dur += sum1
             cat2_dur += sum2
         elif "ZMES" in firma:
-            cat1_zmes += sum1 #
+            cat1_zmes += sum1
             cat2_zmes += sum2
 
     celkem_val = df[10].sum()
@@ -187,17 +181,15 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 6. HTML TABULKA (450px výška, 15 řádků/strana v logice skrolování) ---
-    #
+    # --- 6. HTML TABULKA ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
-    html += '<col style="width:45px"><col style="width:95px">'
-    html += '<col style="width:110px">'*6
-    html += '<col style="width:90px"><col style="width:280px"><col style="width:115px">'
-    html += '<col style="width:115px"><col style="width:115px">'
-    html += '<col style="width:95px">'*4
-    html += '<col style="width:130px">'*2
-    html += '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px">'
+    html += '<col style="width:45px"><col style="width:95px">' # Poř.č., Firma
+    html += '<col style="width:110px">'*6 # Kat I (3x) + Kat II (3x)
+    html += '<col style="width:90px"><col style="width:280px"><col style="width:115px">'*3 # Č.stavby, Název, Nabídka...
+    html += '<col style="width:95px">'*4 # Termíny
+    html += '<col style="width:130px">'*2 # Objednatel, Stavbyved.
+    html += '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px">' # Zbytek
     html += '</colgroup>'
 
     html += '<thead><tr>'
@@ -213,10 +205,12 @@ if not df_raw.empty:
         html += '<tr>'
         for i in range(23):
             val = row[i]
+            # Logika zarovnání
             if i in [0, 13, 14, 15, 16, 20, 22]: td_cls = ' class="center-align"'
             elif i in [1, 9, 17, 18]: td_cls = ' class="txt-align"'
             else: td_cls = ' class="num-align"'
 
+            # Formátování hodnot
             if i == 0: val = int(val) if val != 0 else ""
             elif i in [2,3,4,5,6,7,8,10,11,12,19,21]:
                 try:
