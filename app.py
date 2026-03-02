@@ -9,12 +9,12 @@ st.markdown("""
     <style>
     header {visibility: hidden;}
     
-    /* ÚPRAVA OKRAJŮ: Nahoře/Dole 0, Vlevo/Vpravo 3rem (cca 50px) */
+    /* ÚPRAVA OKRAJŮ: Vlevo/Vpravo sníženo na 1.5rem */
     .block-container { 
         padding-top: 0.5rem !important; 
         padding-bottom: 0rem !important; 
-        padding-left: 3rem !important; 
-        padding-right: 3rem !important;
+        padding-left: 1.5rem !important; 
+        padding-right: 1.5rem !important;
         max-width: 100% !important;
     }
     
