@@ -36,11 +36,12 @@ st.markdown("""
     .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
-    /* KONTEJNER TABULKY */
+    /* KONTEJNER TABULKY - Horní a levý okraj celku */
     .table-container { 
         height: 450px; 
         overflow: auto; 
-        border: 1px solid #000;
+        border-top: 1px solid #000;
+        border-left: 1px solid #000;
         background-color: white;
     }
     
@@ -50,34 +51,36 @@ st.markdown("""
 
     .html-table { 
         width: 100%; 
-        border-collapse: collapse; /* Zpět ke klasice */
+        border-collapse: separate; 
+        border-spacing: 0; 
         font-family: sans-serif; 
         font-size: 12px; 
         table-layout: fixed;
     }
     
-    /* KLÍČOVÝ TRIK: box-shadow bez rozmazání nahrazuje border a nemizí */
+    /* ČISTÁ JEDNODUCHÁ ČÁRA: Pouze vpravo a dole */
     .html-table th, .html-table td {
         padding: 4px 8px;
         white-space: nowrap;
         overflow: hidden;
         background-color: white;
+        /* Box-shadow simuluje border, který nemizí, ale vykreslíme ho jen na 2 stranách */
         box-shadow: inset -1px -1px 0px #000; 
     }
 
+    /* FIXNÍ HLAVIČKA */
     .html-table th { 
         position: sticky; 
-        background-color: #f3f4f6; 
+        background-color: #f3f4f6 !important; 
         z-index: 10; 
         text-align: center;
         font-weight: bold;
-        box-shadow: inset -1px -1px 0px #000;
     }
 
     .html-table thead tr:nth-child(1) th { top: 0; z-index: 20; }
     .html-table thead tr:nth-child(2) th { top: 29px; z-index: 20; } 
     
-    /* Zarovnání */
+    /* ZAROVNÁNÍ */
     .num-align { text-align: right; }
     .txt-align { text-align: left; }
     .center-align { text-align: center; }
@@ -138,7 +141,9 @@ if not df_raw.empty:
     # --- 4. VÝPOČTY ---
     cat1_dur = cat1_zmes = cat2_dur = cat2_zmes = 0.0
     for _, row in df.iterrows():
+        # Kategorie I (PS + SNK + BO)
         s1 = float(row[2]) + float(row[3]) + float(row[4])
+        # Kategorie II (PS + BO + Poruch)
         s2 = float(row[5]) + float(row[6]) + float(row[7])
         f = str(row[1]).strip().upper()
         if "DUR" in f: cat1_dur += s1; cat2_dur += s2
