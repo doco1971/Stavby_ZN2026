@@ -1,91 +1,84 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. KONFIGURACE A KOMPAKTNÍ STYL ---
-st.set_page_config(page_title="Stavby ZN 2026", layout="wide")
+# --- 1. EXTRÉMNĚ KOMPAKTNÍ STYL ---
+st.set_page_config(page_title="ZN 2026", layout="wide")
 
 st.markdown("""
 <style>
-    .block-container { padding-top: 1rem; padding-bottom: 0rem; }
-    h3 { margin-bottom: 0.5rem; font-size: 1.2rem; color: #1e3a5f; font-weight: 800; }
-    .stMetric { padding: 2px 10px; border: 1px solid #eee; border-radius: 5px; background: white; }
-    div[data-testid="stMetricValue"] { font-size: 1.0rem !important; font-weight: 700; }
-    div[data-testid="stMetricLabel"] { font-size: 0.75rem !important; text-transform: uppercase; }
+    .block-container { padding-top: 0.5rem; padding-bottom: 0rem; }
+    h4 { margin: 0; padding: 0; font-size: 1.1rem; color: #1e3a5f; }
+    .stMetric { 
+        padding: 0px 5px !important; 
+        margin: 0 !important;
+        border: 1px solid #f0f2f6; 
+        background: #f8f9fc;
+    }
+    div[data-testid="stMetricValue"] { font-size: 0.95rem !important; font-weight: 700; }
+    div[data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
+    div[data-testid="stExpander"] { border: none !important; }
+    .stSelectbox, .stTextInput { margin-bottom: -10px; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 2. NAČTENÍ DAT ---
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=20)
 def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
         df = df.dropna(how='all')
         df.columns = [str(c).strip() for c in df.columns]
         return df
-    except Exception as e:
-        st.error(f"Chyba při načítání Excelu: {e}")
+    except:
         return pd.DataFrame()
 
 df_all = load_data()
 
 if not df_all.empty:
-    # Identifikace sloupců
     cols = df_all.columns.tolist()
     col_nabidka = next((c for c in cols if 'nabídka' in c.lower() or 'cena' in c.lower()), None)
     col_stav = next((c for c in cols if 'stav' in c.lower()), None)
     col_vedouci = next((c for c in cols if 'vedoucí' in c.lower() or 'stavbyved' in c.lower()), None)
 
-    # Převod nabídky na čísla
     if col_nabidka:
         df_all[col_nabidka] = pd.to_numeric(df_all[col_nabidka], errors='coerce').fillna(0)
 
-    # --- 3. FILTRY (Kompaktní) ---
-    st.markdown("### 🏗️ Evidence zakázek 2026")
-    
-    f1, f2, f3 = st.columns([2, 1, 1])
-    with f1:
-        hledat = st.text_input("Hledat", label_visibility="collapsed", placeholder="Hledat kdekoli (stavba, firma...)...")
-    with f2:
-        # Ošetření TypeError v sorted: převedeme na str a vyfiltrujeme unikátní
-        v_opt = ["Všichni vedoucí"]
-        if col_vedouci:
-            unique_v = sorted([str(x) for x in df_all[col_vedouci].dropna().unique()])
-            v_opt.extend(unique_v)
+    # --- 3. JEDEN ŘÁDEK: NADPIS A FILTRY ---
+    st.markdown("#### 🏗️ Evidence 2026")
+    c1, c2, c3 = st.columns([2, 1, 1])
+    with c1:
+        hledat = st.text_input("Hledat", label_visibility="collapsed", placeholder="Hledat...")
+    with c2:
+        v_opt = ["Všichni"] + sorted([str(x) for x in df_all[col_vedouci].dropna().unique()]) if col_vedouci else ["Všichni"]
         sel_v = st.selectbox("Vedoucí", v_opt, label_visibility="collapsed")
-    with f3:
-        s_opt = ["Všechny stavy"]
-        if col_stav:
-            unique_s = sorted([str(x) for x in df_all[col_stav].dropna().unique()])
-            s_opt.extend(unique_s)
+    with c3:
+        s_opt = ["Vše"] + sorted([str(x) for x in df_all[col_stav].dropna().unique()]) if col_stav else ["Vše"]
         sel_s = st.selectbox("Stav", s_opt, label_visibility="collapsed")
 
-    # Aplikace filtrů
+    # Filtrování
     df_f = df_all.copy()
     if hledat:
         df_f = df_f[df_f.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)]
-    if col_vedouci and sel_v != "Všichni vedoucí":
+    if col_vedouci and sel_v != "Všichni":
         df_f = df_f[df_f[col_vedouci].astype(str) == sel_v]
-    if col_stav and sel_s != "Všechny stavy":
+    if col_stav and sel_s != "Vše":
         df_f = df_f[df_f[col_stav].astype(str) == sel_s]
 
-    # --- 4. SOUČTY (Kompaktní metriky) ---
+    # --- 4. SOUČTY (V jednom řádku pod filtry) ---
     if col_nabidka:
         m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("Celkem", f"{df_f[col_nabidka].sum():,.0f} Kč".replace(',', ' '))
         
-        # Filtrované součty podle klíčových slov v Excelu
-        def sum_by_status(keyword):
-            if col_stav:
-                return df_f[df_f[col_stav].astype(str).str.contains(keyword, case=False, na=False)][col_nabidka].sum()
-            return 0
+        def get_sum(kw):
+            return df_f[df_f[col_stav].astype(str).str.contains(kw, case=False, na=False)][col_nabidka].sum() if col_stav else 0
 
-        m2.metric("Hotovo", f"{sum_by_status('hotov'):,.0f} Kč".replace(',', ' '))
-        m3.metric("Fakturace", f"{sum_by_status('faktur'):,.0f} Kč".replace(',', ' '))
-        m4.metric("Probíhá", f"{sum_by_status('probíh'):,.0f} Kč".replace(',', ' '))
-        m5.metric("Počet staveb", len(df_f))
+        m1.metric("CELKEM", f"{df_f[col_nabidka].sum():,.0f} Kč".replace(',', ' '))
+        m2.metric("HOTOVO", f"{get_sum('hotov'):,.0f} Kč".replace(',', ' '))
+        m3.metric("FAKTURACE", f"{get_sum('faktur'):,.0f} Kč".replace(',', ' '))
+        m4.metric("PROBÍHÁ", f"{get_sum('probíh'):,.0f} Kč".replace(',', ' '))
+        m5.metric("STAVEB", len(df_f))
 
-    # --- 5. TABULKA (Maximální prostor) ---
-    st.dataframe(df_f, use_container_width=True, height=700)
+    # --- 5. TABULKA (Teď zabírá zbytek obrazovky) ---
+    st.dataframe(df_f, use_container_width=True, height=750)
     
 else:
-    st.warning("Excel soubor nebyl nalezen nebo je prázdný.")
+    st.error("Soubor nenalezen.")
