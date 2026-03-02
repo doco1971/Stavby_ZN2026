@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. NASTAVENÍ A ŠETRNÝ DESIGN ---
+# --- 1. KONFIGURACE A DESIGN ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -10,20 +10,28 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Pozadí aplikace - tlumená šedá, aby to nesvítilo */
-    .stApp { background-color: #f1f3f6; }
-    .block-container { padding-top: 0.5rem; }
-    
-    h4 { margin: 0; padding: 0 0 10px 0; font-size: 1.2rem; color: #1e3a5f; }
-    
-    /* Boxy se součty - mírně krémový/šedý podklad */
-    div[data-testid="stMetric"] { 
-        border: 1px solid #d1d5db; 
-        background-color: #fcfcfc;
-        padding: 5px 10px !important;
-        border-radius: 6px;
+    /* Odstranění okrajů stránky (Full Width) */
+    .block-container { 
+        padding-top: 0.5rem; 
+        padding-left: 1rem !important; 
+        padding-right: 1rem !important; 
+        max-width: 100% !important; 
     }
-    div[data-testid="stMetricValue"] { font-size: 1.1rem !important; color: #111827; }
+    
+    /* Tlumené pozadí celé aplikace */
+    .stApp { background-color: #f4f6f8; }
+    
+    h4 { margin: 0; padding: 0 0 10px 0; font-size: 1.1rem; color: #334155; }
+    
+    /* Boxy se součty - decentní vzhled */
+    div[data-testid="stMetric"] { 
+        border: 1px solid #e2e8f0; 
+        background-color: #ffffff;
+        padding: 5px 10px !important;
+        border-radius: 4px;
+    }
+    div[data-testid="stMetricValue"] { font-size: 1rem !important; color: #0f172a; }
+    div[data-testid="stMetricLabel"] { font-size: 0.65rem !important; text-transform: uppercase; letter-spacing: 0.5px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -41,14 +49,16 @@ def load_data():
 df_all = load_data()
 
 if not df_all.empty:
+    # Identifikace sloupců
     cols = df_all.columns.tolist()
     col_nabidka = next((c for c in cols if 'nabídka' in c.lower() or 'cena' in c.lower()), None)
+    col_rozdil = next((c for c in cols if 'rozdíl' in c.lower()), None)
     col_stav = next((c for c in cols if 'stav' in c.lower() and 'název' not in c.lower()), None)
     col_vedouci = next((c for c in cols if 'vedoucí' in c.lower() or 'stavbyved' in c.lower()), None)
 
-    # Převod na čísla
-    if col_nabidka:
-        df_all[col_nabidka] = pd.to_numeric(df_all[col_nabidka], errors='coerce').fillna(0)
+    # Převod všech finančních sloupců na čísla
+    for c in [col_nabidka, col_rozdil]:
+        if c: df_all[c] = pd.to_numeric(df_all[c], errors='coerce').fillna(0)
 
     # --- 3. FILTRY ---
     st.markdown("#### 🏗️ Evidence zakázek 2026")
@@ -71,43 +81,51 @@ if not df_all.empty:
     if col_stav and sel_s != "Všechny stavy":
         df_f = df_f[df_f[col_stav].astype(str) == sel_s]
 
-    # --- 4. SOUČTY (S formátováním) ---
-    if col_nabidka:
-        # Formátování: 1 234 567.89 Kč
-        def fmt(val):
-            return f"{val:,.2f}".replace(",", " ").replace(".", ",") + " Kč"
+    # --- 4. SOUČTY ---
+    def fmt_num(val):
+        return f"{val:,.2f}".replace(",", " ").replace(".", ",") + " Kč"
 
+    if col_nabidka:
         m1, m2, m3, m4, m5 = st.columns(5)
         def get_sum(kw):
             return df_f[df_f[col_stav].astype(str).str.contains(kw, case=False, na=False)][col_nabidka].sum() if col_stav else 0
 
-        m1.metric("CELKEM", fmt(df_f[col_nabidka].sum()))
-        m2.metric("HOTOVO", fmt(get_sum('hotov')))
-        m3.metric("FAKTURACE", fmt(get_sum('faktur')))
-        m4.metric("PROBÍHÁ", fmt(get_sum('probíh')))
+        m1.metric("CELKEM", fmt_num(df_f[col_nabidka].sum()))
+        m2.metric("HOTOVO", fmt_num(get_sum('hotov')))
+        m3.metric("FAKTURACE", fmt_num(get_sum('faktur')))
+        m4.metric("PROBÍHÁ", fmt_num(get_sum('probíh')))
         m5.metric("STAVEB", len(df_f))
 
-    # --- 5. TABULKA (Skrytý index a formátování čísel) ---
-    def style_rows(row):
-        color = ''
+    # --- 5. STYLING TABULKY ---
+    def apply_style(row):
+        styles = [''] * len(row)
+        # Barva řádku podle stavu
         if col_stav:
             status = str(row[col_stav]).lower()
-            if 'hotov' in status: color = 'background-color: #dcfce7'
-            elif 'probíh' in status: color = 'background-color: #fef9c3'
-            elif 'faktur' in status: color = 'background-color: #dbeafe'
-        return [color] * len(row)
+            color = ''
+            if 'hotov' in status: color = 'background-color: #f1fcf4' # ultra jemná zelená
+            elif 'probíh' in status: color = 'background-color: #fffdf2' # ultra jemná žlutá
+            elif 'faktur' in status: color = 'background-color: #f0f7ff' # ultra jemná modrá
+            styles = [color] * len(row)
+        
+        # Červená barva pro záporný rozdíl
+        if col_rozdil:
+            idx_rozdil = row.index.get_loc(col_rozdil)
+            if row[col_rozdil] < 0:
+                styles[idx_rozdil] += '; color: #d00000; font-weight: bold;'
+        
+        return styles
 
-    # Příprava zobrazení čísel v tabulce (všechny číselné sloupce na 2 des. místa)
-    df_display = df_f.style.apply(style_rows, axis=1).format(
-        subset=[col_nabidka] if col_nabidka else [], 
-        formatter="{:,.2f}"
-    )
+    # Formátování čísel v tabulce (2 desetinná místa)
+    format_dict = {}
+    if col_nabidka: format_dict[col_nabidka] = "{:,.2f}"
+    if col_rozdil: format_dict[col_rozdil] = "{:,.2f}"
 
     st.dataframe(
-        df_display, 
+        df_f.style.apply(apply_style, axis=1).format(format_dict),
         use_container_width=True, 
         height=650,
-        hide_index=True # <--- TADY SE VYPÍNÁ TEN PRVNÍ SLOUPEC S ČÍSLY
+        hide_index=True
     )
     
 else:
