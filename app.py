@@ -2,85 +2,93 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- KONFIGURACE ---
+# --- 1. KONFIGURACE ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
-# Skrytí Streamlit menu a okrajů
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    .block-container { padding-top: 1rem; padding-bottom: 0rem; }
-    div[data-testid="stExpander"] { border: none; }
+    .block-container { padding-top: 1rem; }
+    /* Styl pro tabulku, aby vypadala profesionálně */
+    .stDataFrame { border: 1px solid #e6e9ef; border-radius: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- NAČTENÍ A ÚPRAVA DAT ---
+# --- 2. NAČTENÍ A OPRAVA SLOUPCŮ ---
 @st.cache_data(ttl=1)
 def load_and_clean_data():
     try:
-        # Načtení dat (přeskočíme hlavičky v Excelu a definujeme si vlastní)
+        # Načteme data od řádku 6 (kde začínají záznamy)
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         
-        # Vlastní názvy sloupců (přesně podle tvého pořadí)
+        # Tady definujeme VŠECH 23 SLOUPCŮ přesně podle tvého Excelu, aby nenastala chyba "Length mismatch"
         df.columns = [
-            "poř.č.", "firma", "PS (I)", "SNK (I)", "BO (I)", "PS (II)", "BO (II)", "poruchy", 
-            "č.stavby", "název stavby", "nabídka", "rozdíl", "vyfaktur.", 
-            "ukončení", "zrealizováno", "SOD", "ze dne", "objednatel", "stavbyvedoucí"
+            "poř.č.", "firma", 
+            "PS (I)", "SNK (I)", "BO (I)", 
+            "PS (II)", "BO (II)", "poruchy", 
+            "č.stavby", "název stavby", 
+            "nabídka", "rozdíl", "vyfaktur.", 
+            "ukončení", "zrealizováno", "SOD", "ze dne", "objednatel", "stavbyvedoucí",
+            "nabídková cena", "č.faktury", "částka bez DPH", "splatná"
         ]
 
-        # 1. Odstranění prázdných řádků na konci
-        df = df.dropna(subset=["poř.č.", "firma", "název stavby"], how='all')
+        # Odstraníme úplně prázdné řádky
+        df = df.dropna(subset=["poř.č.", "firma"], how='all')
 
-        # 2. Převedení peněz na čísla a formátování (aby tam nebylo nan)
-        money_cols = ["PS (I)", "SNK (I)", "BO (I)", "PS (II)", "BO (II)", "poruchy", "nabídka", "rozdíl", "vyfaktur."]
+        # Čištění peněžních sloupců - žádné nan, jen nuly nebo čísla
+        money_cols = ["PS (I)", "SNK (I)", "BO (I)", "PS (II)", "BO (II)", "poruchy", 
+                      "nabídka", "rozdíl", "vyfaktur.", "nabídková cena", "částka bez DPH"]
         for col in money_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
 
-        # 3. Formátování dat (datumy) - odstranění NaT
-        date_cols = ["ukončení", "zrealizováno", "ze dne"]
+        # Čištění dat - žádné NaT, jen prázdno nebo datum
+        date_cols = ["ukončení", "zrealizováno", "ze dne", "splatná"]
         for col in date_cols:
             df[col] = pd.to_datetime(df[col], errors='coerce')
-            # Převedeme na string v českém formátu, prázdné necháme prázdné
-            df[col] = df[col].dt.strftime('%d.%m.%Y').fillna("")
+            df[col] = df[col].dt.strftime('%d.%m.%Y').replace("NaT", "").replace("nan", "")
 
-        # 4. Vše ostatní (None, nan) pryč
+        # Vše ostatní (None) pryč
         df = df.fillna("")
         return df
     except Exception as e:
-        st.error(f"Chyba: {e}")
+        st.error(f"Chyba při načítání: {e}")
         return pd.DataFrame()
 
 df = load_and_clean_data()
 
-# --- ZOBRAZENÍ ---
+# --- 3. ZOBRAZENÍ ---
 if not df.empty:
-    st.subheader("Evidence 2026")
+    st.markdown("### Evidence 2026")
     
-    # Hledání
-    search = st.text_input("Hledat v tabulce...", placeholder="Zadejte název, firmu nebo číslo stavby")
+    # Vyhledávání
+    search = st.text_input("", placeholder="Hledat zakázku (firma, název, stavba...)", label_visibility="collapsed")
+    
+    filtered_df = df.copy()
     if search:
-        df = df[df.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)]
+        mask = filtered_df.apply(lambda r: search.lower() in str(r.values).lower(), axis=1)
+        filtered_df = filtered_df[mask]
 
-    # Zobrazení tabulky pomocí moderního Streamlit Dataframe
-    # Tenhle prvek je "neprůstřelný" - neřešíš HTML, funguje skvěle na šířku
+    # Dynamické metriky (Celkem a Počet)
+    c1, c2, _ = st.columns([2, 1, 4])
+    with c1:
+        st.metric("CELKEM NABÍDKA", f"{filtered_df['nabídka'].sum():,.2f} Kč".replace(",", " "))
+    with c2:
+        st.metric("POČET ZAKÁZEK", len(filtered_df[filtered_df["poř.č."] != ""]))
+
+    # Hlavní tabulka - teď už bez chyb v počtu sloupců
     st.dataframe(
-        df,
+        filtered_df,
         use_container_width=True,
-        height=580, # Fixní výška pro cca 16 řádků
+        height=450, # Ideální výška pro tvých 16 řádků
         hide_index=True,
         column_config={
-            "nabídka": st.column_config.NumberColumn(format="%.2f Kč"),
-            "rozdíl": st.column_config.NumberColumn(format="%.2f Kč"),
-            "vyfaktur.": st.column_config.NumberColumn(format="%.2f Kč"),
-            "PS (I)": st.column_config.NumberColumn(format="%.2f"),
-            "SNK (I)": st.column_config.NumberColumn(format="%.2f"),
-            "BO (I)": st.column_config.NumberColumn(format="%.2f"),
+            "nabídka": st.column_config.NumberColumn("nabídka", format="%.2f Kč"),
+            "rozdíl": st.column_config.NumberColumn("rozdíl", format="%.2f Kč"),
+            "vyfaktur.": st.column_config.NumberColumn("vyfaktur.", format="%.2f Kč"),
+            "částka bez DPH": st.column_config.NumberColumn("částka bez DPH", format="%.2f Kč"),
+            "poř.č.": st.column_config.Column(width="small"),
+            "firma": st.column_config.Column(width="medium"),
         }
     )
-    
-    # Součty pod tabulkou pro kontrolu
-    celkem = df["nabídka"].sum()
-    st.write(f"**Celková hodnota zobrazených zakázek:** {celkem:,.2f} Kč".replace(",", " "))
-
 else:
-    st.info("Nahrajte soubor nebo zkontrolujte cestu k Excelu.")
+    st.warning("Data nebyla nalezena. Zkontrolujte, zda je soubor v pořádku.")
