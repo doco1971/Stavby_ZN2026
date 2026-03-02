@@ -46,25 +46,23 @@ df_all = load_data()
 if not df_all.empty:
     cols = df_all.columns.tolist()
     
-    # Identifikace finančních sloupců
+    # Identifikace sloupců
     col_nabidka = next((c for c in cols if 'nabídka' in c.lower() or 'nabídková' in c.lower()), None)
     col_dph = next((c for c in cols if 'bez dph' in c.lower()), None)
     col_rozdil = next((c for c in cols if 'rozdíl' in c.lower()), None)
-    
-    # Identifikace datových sloupců
-    cols_date = [c for c in cols if 'dne' in c.lower() or 'ukončení' in c.lower()]
-    
     col_stav = next((c for c in cols if 'stav' in c.lower() and 'název' not in c.lower()), None)
     col_vedouci = next((c for c in cols if 'vedoucí' in c.lower() or 'stavbyved' in c.lower()), None)
+    
+    # Sloupce s datem
+    cols_date = [c for c in cols if 'dne' in c.lower() or 'ukončení' in c.lower()]
 
-    # Převod financí na čísla
-    fin_cols = [col_nabidka, col_dph, col_rozdil]
+    # Převod financí a čištění dat (odstranění času u všech datumů)
+    fin_cols = [c for c in [col_nabidka, col_dph, col_rozdil] if c]
     for c in fin_cols:
-        if c: df_all[c] = pd.to_numeric(df_all[c], errors='coerce').fillna(0)
+        df_all[c] = pd.to_numeric(df_all[c], errors='coerce').fillna(0)
 
-    # Úprava dat (odstranění času)
     for c in cols_date:
-        df_all[c] = pd.to_datetime(df_all[c], errors='coerce').dt.strftime('%d.%m.%Y')
+        df_all[c] = pd.to_datetime(df_all[c], errors='coerce').dt.date
 
     # --- 3. FILTRY ---
     st.markdown("#### 🏗️ Evidence zakázek 2026")
@@ -78,6 +76,7 @@ if not df_all.empty:
         s_opt = ["Všechny stavy"] + sorted([str(x) for x in df_all[col_stav].dropna().unique()]) if col_stav else ["Vše"]
         sel_s = st.selectbox("Stav", s_opt, label_visibility="collapsed")
 
+    # Filtrování
     df_f = df_all.copy()
     if hledat:
         df_f = df_f[df_f.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)]
@@ -88,16 +87,19 @@ if not df_all.empty:
 
     # --- 4. SOUČTY ---
     def fmt_num(val):
+        # Formát 00 000 000,00 Kč
         return f"{val:,.2f}".replace(",", " ").replace(".", ",") + " Kč"
 
     if col_nabidka:
         m1, m2, m3, m4, m5 = st.columns(5)
         def get_sum(kw):
-            return df_f[df_f[col_stav].astype(str).str.contains(kw, case=False, na=False)][col_nabidka].sum() if col_stav else 0
+            if col_stav:
+                return df_f[df_f[col_stav].astype(str).str.contains(kw, case=False, na=False)][col_nabidka].sum()
+            return 0
 
         m1.metric("CELKEM", fmt_num(df_f[col_nabidka].sum()))
         m2.metric("HOTOVO", fmt_num(get_sum('hotov')))
-        m3.metric("FAKTURACE", fmt_num(get_num('faktur')))
+        m3.metric("FAKTURACE", fmt_num(get_sum('faktur')))
         m4.metric("PROBÍHÁ", fmt_num(get_sum('probíh')))
         m5.metric("STAVEB", len(df_f))
 
@@ -118,12 +120,15 @@ if not df_all.empty:
                 styles[idx_rozdil] += '; color: #d00000; font-weight: bold;'
         return styles
 
-    # Formátování čísel pro celou tabulku (2 des. místa, oddělovač mezera)
-    format_dict = {c: "{:,.2f}".format for c in fin_cols if c}
+    # Formátování čísel pro tabulku: 00 000 000.00
+    # (V tabulce používáme tečku jako oddělovač pro haléře, aby to bylo přehlednější)
+    format_config = {c: "{:,.2f}".format for c in fin_cols}
+    # Převod formátu z čárky na mezeru u tisíců
+    for c in format_config:
+        df_f[c] = df_f[c].apply(lambda x: f"{x:,.2f}".replace(",", " "))
 
-    # Zobrazení
     st.dataframe(
-        df_f.style.apply(apply_style, axis=1).format(format_dict, decimal='.').format(format_dict, thousands=' '),
+        df_f.style.apply(apply_style, axis=1),
         use_container_width=True, 
         height=700,
         hide_index=True
