@@ -68,12 +68,14 @@ def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
-        # Vyčištění číselných sloupců
+        
+        # Ošetření čísel (včetně indexu 0 pro poř. č.)
         cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 10, 11, 12, 19, 21]
         for col in cols_to_fix:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-        # Ostatní sloupce na string a odstranění nan
-        df = df.replace({np.nan: '', 'nan': '', 'NaN': ''})
+            
+        # Vyčištění NaN textů ve všech sloupcích
+        df = df.fillna('')
         return df
     except: return pd.DataFrame()
 
@@ -85,6 +87,11 @@ if not df_raw.empty:
     with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
 
     df = df_raw.copy()
+
+    # --- FILTR PRÁZDNÝCH ŘÁDKŮ ---
+    # Ukáže jen řádky, kde je poř.č. > 0 NEBO je vyplněn název stavby (index 9)
+    df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
+
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
@@ -104,7 +111,7 @@ if not df_raw.empty:
             cat2_zmes += sum2
 
     celkem_val = df[10].sum()
-    zakazek_cnt = int(df[df[0] > 0][0].count())
+    zakazek_cnt = int((df[0] > 0).sum())
 
     # --- ZOBRAZENÍ METRIK ---
     m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
@@ -117,39 +124,47 @@ if not df_raw.empty:
     # --- 4. HTML TABULKA ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
-    html += '<col style="width:35px">'  # poř.č. (zarovnáno doprava)
-    html += '<col style="width:90px">'  # firma
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' # Kat I (zůženo na 115px pro velká čísla)
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' # Kat II
-    html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">' # stavba + nabídka
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:85px">'  # rozdíl, vyfakt, ukončení
-    html += '<col style="width:85px"><col style="width:85px"><col style="width:85px">'   # zrealiz, SOD, dne
-    html += '<col style="width:110px"><col style="width:110px"><col style="width:115px">' # obj, stavbyv, nab.c.
-    html += '<col style="width:100px"><col style="width:115px"><col style="width:100px">' # č.fakt, bez DPH, splatná
+    html += '<col style="width:35px">'   # poř.č.
+    html += '<col style="width:90px">'   # firma
+    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
+    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
+    html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">' 
+    html += '<col style="width:115px"><col style="width:115px"><col style="width:85px">' 
+    html += '<col style="width:85px"><col style="width:85px"><col style="width:85px">' 
+    html += '<col style="width:110px"><col style="width:110px"><col style="width:115px">' 
+    html += '<col style="width:100px"><col style="width:115px"><col style="width:100px">' 
     html += '</colgroup>'
 
     html += '<thead><tr><th rowspan="2">poř.č.</th><th rowspan="2">firma</th><th colspan="3">kategorie i</th><th colspan="3">kategorie ii</th><th rowspan="2">č.stavby</th><th rowspan="2">název stavby</th><th rowspan="2">nabídka</th><th rowspan="2">rozdíl</th><th rowspan="2">vyfaktur.</th><th rowspan="2">ukončení</th><th rowspan="2">zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">ze dne</th><th rowspan="2">objednatel</th><th rowspan="2">stavbyved.</th><th rowspan="2">nabídková c.</th><th rowspan="2">č.faktury</th><th rowspan="2">bez DPH</th><th rowspan="2">splatná</th></tr>'
     html += '<tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>poruch</th></tr></thead><tbody>'
 
     for _, row in df.iterrows():
-        if row[0] == 0 and str(row[9]).strip() == "": continue
         html += '<tr>'
         for i in range(23):
             val = row[i]
             td_cls = ""
+            
+            # Formátování pořadového čísla
             if i == 0:
                 td_cls = ' class="num-align"'
                 val = int(val) if val != 0 else ""
+            # Číselné sloupce
             elif i in [2,3,4,5,6,7,10,11,12,19,21]:
                 td_cls = ' class="num-align"'
                 try:
                     n = float(val)
                     val = f"{n:,.2f}".replace(",", " ") if n != 0 else ""
                     if i == 11 and n < 0: td_cls = ' class="red-bold"'
-                except: val = ""
+                except:
+                    val = ""
+            # Datumy
             elif i in [13, 14, 16, 22]:
                 try: val = pd.to_datetime(val).strftime('%d.%m.%Y')
                 except: val = ""
+            
+            # Ošetření NaN textů
+            if str(val).lower() in ["nan", "none"]: val = ""
+                
             html += f'<td{td_cls}>{val}</td>'
         html += '</tr>'
     html += '</tbody></table></div>'
