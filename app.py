@@ -17,20 +17,46 @@ st.markdown("""
     }
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
-    /* Metriky */
+    /* Metriky - Společný styl */
     .metric-box {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
         padding: 5px 10px;
         border-radius: 4px;
         text-align: center;
+        height: 55px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    /* Styl pro KATEGORII I - Spojený box */
+    .cat-box-double {
+        border: 1px solid #d1d5db;
+        background-color: #f9fafb;
+        border-radius: 4px;
+        text-align: center;
         margin-bottom: 10px;
     }
-    .cat-label { font-size: 0.6rem; color: #1f2937; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; }
-    .metric-label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; }
-    .metric-value { font-size: 1rem; font-weight: bold; color: #111827; }
+    .cat-header-main {
+        font-size: 0.65rem;
+        font-weight: bold;
+        background-color: #e5e7eb;
+        border-bottom: 1px solid #d1d5db;
+        padding: 2px 0;
+        text-transform: uppercase;
+    }
+    .cat-content {
+        display: flex;
+        justify-content: space-around;
+        padding: 5px 0;
+    }
+    .cat-sub-item { flex: 1; }
+    
+    .metric-label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; }
+    .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
-    /* TABULKA (ZACHOVÁNO 400PX) */
+    /* TABULKA (ZACHOVÁNO) */
     .table-container { height: 400px; overflow: auto; border: 1px solid #000; }
     .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -45,7 +71,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA (ZACHOVÁNO 23 SLOUPCŮ) ---
+# --- 2. DATA (ZACHOVÁNO) ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
@@ -66,37 +92,48 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. SOUČTY (UPRAVENO DLE DOHODY) ---
+    # --- 3. SOUČTY ---
     def get_sum(col_idx):
         return pd.to_numeric(df[col_idx], errors='coerce').fillna(0).sum()
 
-    m = st.columns(6) # Rozšířeno na 6 sloupců pro nové boxy
+    # Rozdělení na 5 sloupců, Kategorie I zabere jeden širší sloupec
+    m = st.columns([1.2, 1.8, 1.2, 1.2, 1])
     
-    # Výpočty
-    celkem_val = get_sum(10) # Nabídka
-    dur_val = get_sum(3)    # Sloupec K v Excelu (index 3)
-    zmes_val = get_sum(4)   # Sloupec L v Excelu (index 4)
+    celkem_val = get_sum(10)
+    dur_val = get_sum(3)
+    zmes_val = get_sum(4)
     zakazek_cnt = len(df[df[0] != ''])
 
-    # 1. Box: CELKEM
+    # CELKEM
     m[0].markdown(f'<div class="metric-box"><div class="metric-label">CELKEM</div><div class="metric-value">{celkem_val:,.2f} Kč'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
     
-    # 2. Box: DUR (Kategorie I)
-    m[1].markdown(f'<div class="metric-box"><div class="cat-label">KATEGORIE I</div><div class="metric-label">DUR</div><div class="metric-value">{dur_val:,.2f}'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
+    # SPOJENÝ BOX KATEGORIE I
+    m[1].markdown(f'''
+        <div class="cat-box-double">
+            <div class="cat-header-main">KATEGORIE I</div>
+            <div class="cat-content">
+                <div class="cat-sub-item">
+                    <div class="metric-label">DUR</div>
+                    <div class="metric-value">{dur_val:,.2f}</div>
+                </div>
+                <div class="cat-sub-item" style="border-left: 1px solid #d1d5db;">
+                    <div class="metric-label">ZMES</div>
+                    <div class="metric-value">{zmes_val:,.2f}</div>
+                </div>
+            </div>
+        </div>
+    '''.replace(",", " "), unsafe_allow_html=True)
     
-    # 3. Box: ZMES (Kategorie I)
-    m[2].markdown(f'<div class="metric-box"><div class="cat-label">KATEGORIE I</div><div class="metric-label">ZMES</div><div class="metric-value">{zmes_val:,.2f}'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
+    # FAKTURACE
+    m[2].markdown(f'<div class="metric-box"><div class="metric-label">FAKTURACE</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
     
-    # 4. Box: FAKTURACE
-    m[3].markdown(f'<div class="metric-box"><div class="metric-label">FAKTURACE</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
+    # PROBÍHÁ
+    m[3].markdown(f'<div class="metric-box"><div class="metric-label">PROBÍHÁ</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
     
-    # 5. Box: PROBÍHÁ
-    m[4].markdown(f'<div class="metric-box"><div class="metric-label">PROBÍHÁ</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
-    
-    # 6. Box: ZAKÁZEK
-    m[5].markdown(f'<div class="metric-box"><div class="metric-label">ZAKÁZEK</div><div class="metric-value">{zakazek_cnt}</div></div>', unsafe_allow_html=True)
+    # ZAKÁZEK
+    m[4].markdown(f'<div class="metric-box"><div class="metric-label">ZAKÁZEK</div><div class="metric-value">{zakazek_cnt}</div></div>', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA (BEZ ZMĚN) ---
+    # --- 4. HTML TABULKA (ZACHOVÁNO) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:40px"><col style="width:100px">' 
