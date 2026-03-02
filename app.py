@@ -24,7 +24,6 @@ st.markdown("""
         border-radius: 4px;
         text-align: center;
         margin-bottom: 10px;
-        width: 100%;
         height: 75px;
         display: flex;
         flex-direction: column;
@@ -37,12 +36,12 @@ st.markdown("""
     .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
-    /* KONTEJNER A TABULKA - OPRAVA BÍLÉHO MIZENÍ */
+    /* KONTEJNER TABULKY */
     .table-container { 
         height: 450px; 
         overflow: auto; 
         border: 1px solid #000;
-        background-color: #000; /* Černé pozadí podkladu vytvoří linky mezi buňkami */
+        background-color: white;
     }
     
     .table-container::-webkit-scrollbar { width: 25px; height: 25px; }
@@ -51,34 +50,34 @@ st.markdown("""
 
     .html-table { 
         width: 100%; 
-        border-collapse: separate; 
-        border-spacing: 1px; /* Tato 1px mezera na černém podkladu vytvoří linky */
+        border-collapse: collapse; /* Zpět ke klasice */
         font-family: sans-serif; 
         font-size: 12px; 
         table-layout: fixed;
-        background-color: #000;
     }
     
+    /* KLÍČOVÝ TRIK: box-shadow bez rozmazání nahrazuje border a nemizí */
     .html-table th, .html-table td {
         padding: 4px 8px;
         white-space: nowrap;
         overflow: hidden;
-        background-color: #fff; /* Buňky jsou bílé, mezery mezi nimi černé */
+        background-color: white;
+        box-shadow: inset -1px -1px 0px #000; 
     }
 
-    /* FIXNÍ HLAVIČKA */
     .html-table th { 
         position: sticky; 
         background-color: #f3f4f6; 
         z-index: 10; 
         text-align: center;
         font-weight: bold;
+        box-shadow: inset -1px -1px 0px #000;
     }
 
-    .html-table thead tr:nth-child(1) th { top: 0; z-index: 12; }
-    .html-table thead tr:nth-child(2) th { top: 29px; z-index: 12; } 
+    .html-table thead tr:nth-child(1) th { top: 0; z-index: 20; }
+    .html-table thead tr:nth-child(2) th { top: 29px; z-index: 20; } 
     
-    /* ZAROVNÁNÍ */
+    /* Zarovnání */
     .num-align { text-align: right; }
     .txt-align { text-align: left; }
     .center-align { text-align: center; }
@@ -137,16 +136,13 @@ if not df_raw.empty:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
     # --- 4. VÝPOČTY ---
-    cat1_dur, cat1_zmes = 0.0, 0.0
-    cat2_dur, cat2_zmes = 0.0, 0.0
+    cat1_dur = cat1_zmes = cat2_dur = cat2_zmes = 0.0
     for _, row in df.iterrows():
         s1 = float(row[2]) + float(row[3]) + float(row[4])
         s2 = float(row[5]) + float(row[6]) + float(row[7])
         f = str(row[1]).strip().upper()
-        if "DUR" in f:
-            cat1_dur += s1; cat2_dur += s2
-        elif "ZMES" in f:
-            cat1_zmes += s1; cat2_zmes += s2
+        if "DUR" in f: cat1_dur += s1; cat2_dur += s2
+        elif "ZMES" in f: cat1_zmes += s1; cat2_zmes += s2
 
     celkem_val = df[10].sum()
     zakazek_cnt = int((df[0] > 0).sum())
@@ -154,8 +150,8 @@ if not df_raw.empty:
     # --- 5. METRIKY ---
     m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
     m[0].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Celkem Nabídka</div><div class="cat-content"><div class="metric-value">{celkem_val:,.2f} Kč</div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
-    m[1].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
-    m[2].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie II</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat2_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat2_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    m[1].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item" style="text-align:center"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="text-align:center; border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    m[2].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie II</div><div class="cat-content"><div class="cat-sub-item" style="text-align:center"><div class="metric-label">DUR</div><div class="metric-value">{cat2_dur:,.2f}</div></div><div class="cat-sub-item" style="text-align:center; border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat2_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
