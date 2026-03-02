@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE (ZACHOVÁNO) ---
+# --- 1. KONFIGURACE ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -89,22 +89,33 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. SOUČTY (OPRAVENO DLE VZORCŮ K3 a L3) ---
+    # --- 3. DYNAMICKÉ SOUČTY ---
+    dur_val = 0.0
+    zmes_val = 0.0
+
+    for _, row in df.iterrows():
+        # Součet Kategorie I (PS + SNK + BO) -> indexy 2, 3, 4
+        try:
+            line_sum = (pd.to_numeric(row[2], errors='coerce') or 0) + \
+                       (pd.to_numeric(row[3], errors='coerce') or 0) + \
+                       (pd.to_numeric(row[4], errors='coerce') or 0)
+            
+            firma = str(row[1]).strip().upper()
+            if "DUR" in firma:
+                dur_val += line_sum
+            elif "ZMES" in firma:
+                zmes_val += line_sum
+        except:
+            pass
+
     def get_sum(col_idx):
         return pd.to_numeric(df[col_idx], errors='coerce').fillna(0).sum()
 
-    m = st.columns([1.2, 2.2, 1.2, 1.2, 1])
-    
-    # Podle Excelu: K=11. sloupec (index 10), L=12. sloupec (index 11)
-    # Sloupec J (10) v tvém excelu je "název stavby", K (11) je "nabídka", L (12) je "rozdíl"
-    
-    dur_val = get_sum(10)   # Excel Sloupec K (index 10)
-    zmes_val = get_sum(11)  # Excel Sloupec L (index 11)
-    celkem_val = dur_val    # Pokud je Celkem to samé co DUR, necháme index 10
-    
+    celkem_val = get_sum(10) # Celková Nabídka
     zakazek_cnt = len(df[df[0] != ''])
 
-    # Zobrazení boxů
+    m = st.columns([1.2, 2.2, 1.2, 1.2, 1])
+    
     m[0].markdown(f'<div class="metric-box"><div class="metric-label">CELKEM</div><div class="metric-value">{celkem_val:,.2f} Kč'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
     
     m[1].markdown(f'''
@@ -131,7 +142,6 @@ if not df_raw.empty:
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:40px"><col style="width:100px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:250px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"></colgroup>'
-
     html += '<thead><tr><th rowspan="2">poř.č.</th><th rowspan="2">firma</th><th colspan="3">kategorie i</th><th colspan="3">kategorie ii</th><th rowspan="2">č.stavby</th><th rowspan="2">název stavby</th><th rowspan="2">nabídka</th><th rowspan="2">rozdíl</th><th rowspan="2">vyfaktur.</th><th rowspan="2">ukončení</th><th rowspan="2">zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">ze dne</th><th rowspan="2">objednatel</th><th rowspan="2">stavbyved.</th><th rowspan="2">nabídková c.</th><th rowspan="2">č.faktury</th><th rowspan="2">bez DPH</th><th rowspan="2">splatná</th></tr>'
     html += '<tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>poruch</th></tr></thead><tbody>'
 
@@ -152,7 +162,6 @@ if not df_raw.empty:
                 except: pass
             html += f'<td{td_cls}>{val}</td>'
         html += '</tr>'
-    
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 else:
