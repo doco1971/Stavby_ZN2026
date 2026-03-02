@@ -1,39 +1,60 @@
 import streamlit as st
 import pandas as pd
-import streamlit.components.v1 as components
 
-# --- KONFIGURACE ---
+# --- KONFIGURACE STRÁNKY ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
-# --- EXTRÉMNÍ CSS PRO POSUVNÍK ---
+# --- EXTRÉMNÍ CSS PRO POSUVNÍK A TABULKU ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .block-container { padding-top: 0.5rem !important; }
+    .block-container { padding-top: 1rem !important; }
     
-    /* Vynucení tlustého posuvníku */
-    html, body, [data-testid="stAppViewContainer"], .stDataFrame, div[data-testid="stDataTableVisualizer"] {
-        scrollbar-width: thick !important;
-        scrollbar-color: #888888 #f1f1f1 !important;
+    /* Kontejner pro tabulku s pevnou výškou a obřím posuvníkem */
+    .table-container {
+        height: 600px; /* Výška pro cca 16 řádků */
+        overflow-y: scroll;
+        overflow-x: auto;
+        border: 1px solid #ccc;
     }
 
-    ::-webkit-scrollbar {
-        width: 35px !important; 
-        height: 35px !important;
-        display: block !important;
+    /* Vlastní design posuvníku - Extrémně tlustý */
+    .table-container::-webkit-scrollbar {
+        width: 30px !important;
+        height: 30px !important;
     }
-    ::-webkit-scrollbar-track {
+    .table-container::-webkit-scrollbar-track {
         background: #f1f1f1 !important;
-        display: block !important;
     }
-    ::-webkit-scrollbar-thumb {
-        background: #888888 !important;
-        border-radius: 0px !important;
+    .table-container::-webkit-scrollbar-thumb {
+        background: #888 !important;
         border: 5px solid #f1f1f1 !important;
-        display: block !important;
     }
+    .table-container::-webkit-scrollbar-thumb:hover {
+        background: #555 !important;
+    }
+
+    /* Styl samotné HTML tabulky */
+    .custom-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: sans-serif;
+        font-size: 14px;
+    }
+    .custom-table th {
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        padding: 10px;
+        border: 1px solid #dee2e6;
+        z-index: 10;
+    }
+    .custom-table td {
+        padding: 8px;
+        border: 1px solid #dee2e6;
+        white-space: nowrap;
+    }
+    .neg-value { color: #d00000; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -42,82 +63,65 @@ st.markdown("""
 def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
-        df = df.dropna(how='all')
+        df = df.dropna(how='all') # Smaže jen úplně prázdné řádky
         df.columns = [str(c).strip() for c in df.columns]
-        
-        # Striktní formátování všech čísel na 2 desetinná místa jako text
-        money_cols = [c for c in df.columns if any(x in c.lower() for x in ['nabídka', 'rozdíl', 'bez dph', 'vyfaktur', 'ps', 'snk', 'bo', 'poruchy'])]
-        for c in money_cols:
-            df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0).apply(lambda x: f"{x:.2f}")
-            
-        return df, money_cols
+        return df
     except:
-        return pd.DataFrame(), []
+        return pd.DataFrame()
 
-df_raw, money_cols = load_data()
+df = load_data()
 
-if not df_raw.empty:
-    col_stav = next((c for c in df_raw.columns if 'stav' in c.lower() and 'název' not in c.lower()), None)
-    col_rozdil = next((c for c in df_raw.columns if 'rozdíl' in c.lower()), None)
-
-    # --- FILTR A METRIKY ---
-    hledat = st.text_input("Hledat", label_visibility="collapsed", placeholder="Hledat...")
-    df_f = df_raw.copy()
-    if hledat:
-        df_f = df_f[df_f.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)]
-
-    m1, m2, m3, m4, m5 = st.columns(5)
-    cn = next((c for c in money_cols if 'nabídka' in c.lower()), money_cols[0])
+if not df.empty:
+    # Metriky (horní lišta)
+    money_cols = [c for c in df.columns if any(x in c.lower() for x in ['nabídka', 'rozdíl', 'bez dph', 'vyfaktur', 'ps', 'snk', 'bo', 'poruchy'])]
+    col_n = next((c for c in money_cols if 'nabídka' in c.lower()), money_cols[0])
     
-    m1.metric("CELKEM", f"{df_f[cn].astype(float).sum():,.2f}".replace(",", " ") + " Kč")
-    m5.metric("ZAKÁZEK", len(df_f))
+    total_val = pd.to_numeric(df[col_n], errors='coerce').sum()
+    
+    c1, c2 = st.columns([1, 4])
+    with c1: st.metric("CELKEM", f"{total_val:,.2f}".replace(",", " ") + " Kč")
+    with c2: st.metric("ZAKÁZEK", len(df))
 
-    # --- TABULKA NA 16 ŘÁDKŮ ---
-    def style_row(row):
-        styles = [''] * len(row)
-        if col_stav:
-            s = str(row[col_stav]).lower()
-            if 'hotov' in s: styles = ['background-color: #f1fcf4'] * len(row)
-            elif 'probíh' in s: styles = ['background-color: #fffdf2'] * len(row)
-        if col_rozdil and "-" in str(row[col_rozdil]):
-            styles[row.index.get_loc(col_rozdil)] += 'color: #d00000; font-weight: bold;'
-        return styles
+    # --- GENEROVÁNÍ HTML TABULKY ---
+    # Záhlaví
+    html = '<div class="table-container"><table class="custom-table"><thead><tr>'
+    for col in df.columns:
+        html += f'<th>{col}</th>'
+    html += '</tr></thead><tbody>'
 
-    for c in df_f.columns:
-        if any(x in c.lower() for x in ['dne', 'ukončení']):
-            df_f[c] = pd.to_datetime(df_f[c], errors='coerce').dt.strftime('%d.%m.%Y').replace('NaT', '')
-
-    # Výška nastavena nízko, aby vynutila 16 řádků i při velkém rozlišení
-    st.dataframe(
-        df_f.style.apply(style_row, axis=1),
-        use_container_width=True, 
-        height=480, 
-        hide_index=True
-    )
-
-    # --- INJEKCE JAVASCRIPTU PRO POSUVNÍK ---
-    components.html("""
-        <script>
-        var style = window.parent.document.createElement('style');
-        style.innerHTML = `
-            div[data-testid="stDataTableVisualizer"] ::-webkit-scrollbar { 
-                width: 35px !important; 
-                height: 35px !important; 
-                display: block !important;
-            }
-            div[data-testid="stDataTableVisualizer"] ::-webkit-scrollbar-thumb { 
-                background: #888 !important; 
-                border: 5px solid #f1f1f1 !important;
-                display: block !important;
-            }
-            div[data-testid="stDataTableVisualizer"] ::-webkit-scrollbar-track { 
-                background: #f1f1f1 !important; 
-                display: block !important;
-            }
-        `;
-        window.parent.document.head.appendChild(style);
-        </script>
-    """, height=0)
+    # Data
+    for _, row in df.iterrows():
+        html += '<tr>'
+        for col in df.columns:
+            val = row[col]
+            
+            # Formátování čísel
+            if col in money_cols:
+                try:
+                    num = float(val)
+                    formatted = f"{num:.2f}"
+                    # Červená pro záporný rozdíl
+                    style = ' class="neg-value"' if 'rozdíl' in col.lower() and num < 0 else ''
+                    html += f'<td{style}>{formatted}</td>'
+                except:
+                    html += f'<td>{val if pd.notna(val) else ""}</td>'
+            
+            # Datumy
+            elif any(x in col.lower() for x in ['dne', 'ukončení']):
+                try:
+                    d = pd.to_datetime(val).strftime('%d.%m.%Y')
+                    html += f'<td>{d}</td>'
+                except:
+                    html += f'<td>{val if pd.notna(val) else ""}</td>'
+            
+            else:
+                html += f'<td>{val if pd.notna(val) else ""}</td>'
+        html += '</tr>'
+    
+    html += '</tbody></table></div>'
+    
+    # Vykreslení
+    st.markdown(html, unsafe_allow_html=True)
 
 else:
     st.error("Data nenalezena.")
