@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. KONFIGURACE A DESIGN ŠIROKÉHO POSUVNÍKU ---
+# --- 1. KONFIGURACE A EXTRÉMNĚ TLUSTÝ POSUVNÍK ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -18,23 +18,23 @@ st.markdown("""
     
     .stApp { background-color: #f4f6f8; }
     
-    /* EXTRÉMNĚ ŠIROKÝ POSUVNÍK - VYNUCENÍ */
+    /* EXTRÉMNĚ TLUSTÝ POSUVNÍK (30px) */
     ::-webkit-scrollbar {
-        width: 20px !important; /* Ještě širší pro jistotu */
-        height: 20px !important;
+        width: 30px !important; 
+        height: 30px !important;
         display: block !important;
     }
     ::-webkit-scrollbar-track {
         background: #e2e8f0 !important;
-        border: 1px solid #cbd5e1 !important;
+        border: 2px solid #cbd5e1 !important;
     }
     ::-webkit-scrollbar-thumb {
-        background: #64748b !important; /* Tmavší šedá */
-        border-radius: 2px !important;
-        border: 3px solid #e2e8f0 !important;
+        background: #475569 !important; /* Tmavě šedá pro viditelnost */
+        border-radius: 4px !important;
+        border: 5px solid #e2e8f0 !important;
     }
     ::-webkit-scrollbar-thumb:hover {
-        background: #334155 !important;
+        background: #1e293b !important;
     }
 
     /* KOMPAKTNÍ METRIKY */
@@ -49,22 +49,18 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. NAČTENÍ DAT (OPRAVA MIZENÍ ŘÁDKŮ) ---
+# --- 2. NAČTENÍ DAT (BEZ FILTROVÁNÍ ŘÁDKŮ) ---
 @st.cache_data(ttl=2)
 def load_data():
     try:
-        # Načteme vše, nebudeme řádky mazat jen proto, že jsou prázdné
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
+        # Odstraníme pouze řádky, které jsou v celém Excelu úplně prázdné
+        df = df.dropna(how='all')
         df.columns = [str(c).strip() for c in df.columns]
         
-        # Odstraníme jen úplně prázdné řádky přes celou šířku
-        df = df.dropna(how='all')
-        
-        # Finanční sloupce - převod na text (fix desetin)
+        # Ošetření desetin - převod na text (fix na 2 místa)
         money_cols = [c for c in df.columns if any(x in c.lower() for x in ['nabídka', 'rozdíl', 'bez dph', 'vyfaktur', 'ps', 'snk', 'bo', 'poruchy'])]
-        
         for c in money_cols:
-            # Převedeme na číslo, zaokrouhlíme a uložíme jako text
             df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0).apply(lambda x: f"{x:.2f}")
             
         return df, money_cols
@@ -78,7 +74,7 @@ if not df_raw.empty:
     col_stav = next((c for c in df_raw.columns if 'stav' in c.lower() and 'název' not in c.lower()), None)
     col_rozdil = next((c for c in df_raw.columns if 'rozdíl' in c.lower()), None)
 
-    # --- 3. LIŠTA ---
+    # --- 3. LIŠTA (NADPIS + HLEDÁNÍ) ---
     c1, c2 = st.columns([1, 3])
     with c1: st.markdown("#### 🏗️ Evidence 2026")
     with c2: hledat = st.text_input("Hledat", label_visibility="collapsed", placeholder="Hledat...")
@@ -107,7 +103,7 @@ if not df_raw.empty:
     m4.metric("PROBÍHÁ", fmt_num(get_sum('probíh')))
     m5.metric("ZAKÁZEK", len(df_f))
 
-    # --- 5. STYLING A TABULKA (VÝŠKA NA 9 ŘÁDKŮ) ---
+    # --- 5. STYLING A TABULKA (NASTAVENO NA 16 ŘÁDKŮ) ---
     def style_row(row):
         styles = [''] * len(row)
         if col_stav:
@@ -128,11 +124,11 @@ if not df_raw.empty:
         if any(x in c.lower() for x in ['dne', 'ukončení']):
             df_f[c] = pd.to_datetime(df_f[c], errors='coerce').dt.strftime('%d.%m.%Y').replace('NaT', '')
 
-    # VÝŠKA NASTAVENA PRO 9 ŘÁDKŮ (CCA 265 PX)
+    # VÝŠKA NASTAVENA PRO 16 ŘÁDKŮ (CCA 450 PX)
     st.dataframe(
         df_f.style.apply(style_row, axis=1),
         use_container_width=True, 
-        height=265, 
+        height=450, 
         hide_index=True
     )
     
