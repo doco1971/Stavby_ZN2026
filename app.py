@@ -59,19 +59,29 @@ st.markdown("""
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
     .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; table-layout: fixed; }
+    
+    /* OPRAVA FIXNÍ HLAVIČKY */
     .html-table th { 
         position: sticky; 
-        top: 0; 
         background-color: #f3f4f6; 
         border: 1px solid #000; 
         padding: 5px; 
         z-index: 10; 
         text-align: center;
-        text-transform: none;
     }
+    /* První řada hlavičky */
+    .html-table thead tr:nth-child(1) th {
+        top: 0;
+        z-index: 11;
+    }
+    /* Druhá řada hlavičky (pod-hlavičky) - musí být posunutá o výšku té první */
+    .html-table thead tr:nth-child(2) th {
+        top: 29px; /* Odhadovaná výška prvního řádku */
+        z-index: 11;
+    }
+    
     .html-table td { border: 1px solid #000; padding: 4px 8px; white-space: nowrap; overflow: hidden; }
     
-    /* ZAROVNÁNÍ */
     .num-align { text-align: right; }
     .txt-align { text-align: left; }
     .center-align { text-align: center; }
@@ -93,11 +103,9 @@ if not st.session_state.logged_in:
         if st.button("Vstoupit", use_container_width=True):
             if u == "admin" and p == "zn2026":
                 st.session_state.logged_in = True
-                st.session_state.role = "supervisor"
                 st.rerun()
             elif u == "host" and p == "prohlizec":
                 st.session_state.logged_in = True
-                st.session_state.role = "user"
                 st.rerun()
             else:
                 st.error("Nesprávné jméno nebo heslo")
@@ -109,7 +117,6 @@ def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
-        # Sloupce pro numerický převod (částky a čísla)
         cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 19, 21]
         for col in cols_to_fix:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -133,12 +140,15 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY ---
+    # --- 4. VÝPOČTY (Dle Saved Info) ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
     for _, row in df.iterrows():
+        # Kategorie I: PS(2) + SNK(3) + BO(4)
         sum1 = float(row[2]) + float(row[3]) + float(row[4])
+        # Kategorie II: PS(5) + BO(6) + Poruch(7)
         sum2 = float(row[5]) + float(row[6]) + float(row[7])
+        
         firma = str(row[1]).strip().upper()
         if "DUR" in firma:
             cat1_dur += sum1
@@ -158,38 +168,42 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 6. HTML TABULKA (23 SLOUPCŮ SE ZAROVNÁNÍM) ---
+    # --- 6. HTML TABULKA (Opravené CSS a zarovnání) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
-    html += '<col style="width:45px">'  # Poř.č. (střed)
-    html += '<col style="width:90px">'  # Firma (vlevo)
-    html += '<col style="width:110px">'*6 # Kat I a II (vpravo)
-    html += '<col style="width:90px">'  # Č.stavby (vpravo)
-    html += '<col style="width:280px">' # Název stavby (vlevo)
-    html += '<col style="width:115px">'*3 # Nabídka, Rozdíl, Vyfaktur. (vpravo)
-    html += '<col style="width:95px">'*4 # Termíny a SOD (střed)
-    html += '<col style="width:130px">'*2 # Objednatel, Stavbyved. (vlevo)
-    html += '<col style="width:115px">' # Nabídková c. (vpravo)
-    html += '<col style="width:100px">' # Č.faktury (střed)
-    html += '<col style="width:115px">' # Bez DPH (vpravo)
-    html += '<col style="width:100px">' # Splatná (střed)
+    html += '<col style="width:45px">'  # 0: Poř.č.
+    html += '<col style="width:95px">'  # 1: Firma
+    html += '<col style="width:110px">'*6 # 2-7: Kat I a II
+    html += '<col style="width:90px">'  # 8: Č.stavby
+    html += '<col style="width:280px">' # 9: Název stavby
+    html += '<col style="width:115px">'*3 # 10-12: Nabídka, Rozdíl, Vyfaktur.
+    html += '<col style="width:95px">'*4 # 13-16: Ukončení, Zrealiz, SOD, Ze dne
+    html += '<col style="width:130px">'*2 # 17-18: Objednatel, Stavbyved.
+    html += '<col style="width:115px">' # 19: Nabídková c.
+    html += '<col style="width:100px">' # 20: Č.faktury
+    html += '<col style="width:115px">' # 21: Bez DPH
+    html += '<col style="width:100px">' # 22: Splatná
     html += '</colgroup>'
 
-    html += '<thead><tr><th rowspan="2">Poř.č.</th><th rowspan="2">Firma</th><th colspan="3">Kategorie I</th><th colspan="3">Kategorie II</th>'
+    html += '<thead><tr>'
+    html += '<th rowspan="2">Poř.č.</th><th rowspan="2">Firma</th><th colspan="3">Kategorie I</th><th colspan="3">Kategorie II</th>'
     html += '<th rowspan="2">Č.stavby</th><th rowspan="2">Název stavby</th><th rowspan="2">Nabídka</th><th rowspan="2">Rozdíl</th><th rowspan="2">Vyfaktur.</th>'
     html += '<th rowspan="2">Ukončení</th><th rowspan="2">Zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">Ze dne</th><th rowspan="2">Objednatel</th>'
     html += '<th rowspan="2">Stavbyved.</th><th rowspan="2">Nabídková c.</th><th rowspan="2">Č.faktury</th><th rowspan="2">Bez DPH</th><th rowspan="2">Splatná</th>'
-    html += '</tr><tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th></tr></thead><tbody>'
+    html += '</tr><tr>'
+    html += '<th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th>'
+    html += '</tr></thead><tbody>'
 
     for _, row in df.iterrows():
         html += '<tr>'
         for i in range(23):
             val = row[i]
-            # LOGIKA ZAROVNÁNÍ
+            # Zarovnání dle typu dat
             if i in [0, 13, 14, 15, 16, 20, 22]: td_cls = ' class="center-align"'
             elif i in [1, 9, 17, 18]: td_cls = ' class="txt-align"'
             else: td_cls = ' class="num-align"'
 
+            # Formátování čísel a dat
             if i == 0: val = int(val) if val != 0 else ""
             elif i in [2,3,4,5,6,7,8,10,11,12,19,21]:
                 try:
