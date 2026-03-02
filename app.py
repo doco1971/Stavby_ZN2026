@@ -49,9 +49,15 @@ st.markdown("""
     .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; line-height: 1; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
-    .table-container { height: 500px; overflow: auto; border: 1px solid #000; }
-    .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
-    .table-container::-webkit-scrollbar-thumb { background: #888; border: 5px solid #f1f1f1; }
+    /* KONTEJNER PRO 15 ŘÁDKŮ + POSUVNÍK */
+    .table-container { 
+        height: 450px; /* Výška odpovídající cca 15 řádkům + hlavičce */
+        overflow-y: auto; 
+        border: 1px solid #000; 
+    }
+    .table-container::-webkit-scrollbar { width: 25px; height: 25px; }
+    .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
+    .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
     .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; table-layout: fixed; }
     .html-table th { position: sticky; top: 0; background-color: #f3f4f6; border: 1px solid #000; padding: 5px; z-index: 10; text-align: center; }
@@ -69,12 +75,10 @@ def load_data():
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
         
-        # Ošetření čísel (včetně indexu 0 pro poř. č.)
         cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 10, 11, 12, 19, 21]
         for col in cols_to_fix:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
-        # Vyčištění NaN textů ve všech sloupcích
         df = df.fillna('')
         return df
     except: return pd.DataFrame()
@@ -87,9 +91,7 @@ if not df_raw.empty:
     with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
 
     df = df_raw.copy()
-
-    # --- FILTR PRÁZDNÝCH ŘÁDKŮ ---
-    # Ukáže jen řádky, kde je poř.č. > 0 NEBO je vyplněn název stavby (index 9)
+    # Filtr pouze pro řádky s obsahem
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
 
     if hledat:
@@ -113,7 +115,7 @@ if not df_raw.empty:
     celkem_val = df[10].sum()
     zakazek_cnt = int((df[0] > 0).sum())
 
-    # --- ZOBRAZENÍ METRIK ---
+    # --- METRIKY ---
     m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
     m[0].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">CELKEM NABÍDKA</div><div class="cat-content"><div class="metric-value">{celkem_val:,.2f} Kč</div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
     m[1].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">KATEGORIE I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
@@ -121,11 +123,11 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">PROBÍHÁ</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">ZAKÁZEK</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA ---
+    # --- 4. HTML TABULKA (PEVNÁ VÝŠKA) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
-    html += '<col style="width:35px">'   # poř.č.
-    html += '<col style="width:90px">'   # firma
+    html += '<col style="width:35px">'
+    html += '<col style="width:90px">'
     html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
     html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
     html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">' 
@@ -143,28 +145,20 @@ if not df_raw.empty:
         for i in range(23):
             val = row[i]
             td_cls = ""
-            
-            # Formátování pořadového čísla
             if i == 0:
                 td_cls = ' class="num-align"'
                 val = int(val) if val != 0 else ""
-            # Číselné sloupce
             elif i in [2,3,4,5,6,7,10,11,12,19,21]:
                 td_cls = ' class="num-align"'
                 try:
                     n = float(val)
                     val = f"{n:,.2f}".replace(",", " ") if n != 0 else ""
                     if i == 11 and n < 0: td_cls = ' class="red-bold"'
-                except:
-                    val = ""
-            # Datumy
+                except: val = ""
             elif i in [13, 14, 16, 22]:
                 try: val = pd.to_datetime(val).strftime('%d.%m.%Y')
                 except: val = ""
-            
-            # Ošetření NaN textů
             if str(val).lower() in ["nan", "none"]: val = ""
-                
             html += f'<td{td_cls}>{val}</td>'
         html += '</tr>'
     html += '</tbody></table></div>'
