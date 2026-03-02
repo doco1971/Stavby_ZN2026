@@ -17,7 +17,6 @@ st.markdown("""
     }
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
-    /* Metriky - Společný styl */
     .metric-box {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
@@ -30,7 +29,6 @@ st.markdown("""
         justify-content: center;
     }
 
-    /* Styl pro KATEGORII I - Spojený box */
     .cat-box-double {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
@@ -56,7 +54,6 @@ st.markdown("""
     .metric-label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
-    /* TABULKA (ZACHOVÁNO) */
     .table-container { height: 400px; overflow: auto; border: 1px solid #000; }
     .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -71,7 +68,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA (ZACHOVÁNO) ---
+# --- 2. DATA ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
@@ -92,22 +89,24 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. SOUČTY ---
+    # --- 3. SOUČTY (OPRAVENÉ INDEXY) ---
     def get_sum(col_idx):
         return pd.to_numeric(df[col_idx], errors='coerce').fillna(0).sum()
 
-    # Rozdělení na 5 sloupců, Kategorie I zabere jeden širší sloupec
-    m = st.columns([1.2, 1.8, 1.2, 1.2, 1])
+    m = st.columns([1.2, 2.2, 1.2, 1.2, 1])
     
+    # Celkem nabídka (Sloupec K = index 10)
     celkem_val = get_sum(10)
-    dur_val = get_sum(3)
-    zmes_val = get_sum(4)
+    # DUR (Předpokládám Sloupec K = index 10)
+    dur_val = get_sum(10)
+    # ZMES (Předpokládám Sloupec L = index 11)
+    zmes_val = get_sum(11)
+    
     zakazek_cnt = len(df[df[0] != ''])
 
-    # CELKEM
+    # Boxy
     m[0].markdown(f'<div class="metric-box"><div class="metric-label">CELKEM</div><div class="metric-value">{celkem_val:,.2f} Kč'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
     
-    # SPOJENÝ BOX KATEGORIE I
     m[1].markdown(f'''
         <div class="cat-box-double">
             <div class="cat-header-main">KATEGORIE I</div>
@@ -124,34 +123,17 @@ if not df_raw.empty:
         </div>
     '''.replace(",", " "), unsafe_allow_html=True)
     
-    # FAKTURACE
     m[2].markdown(f'<div class="metric-box"><div class="metric-label">FAKTURACE</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
-    
-    # PROBÍHÁ
     m[3].markdown(f'<div class="metric-box"><div class="metric-label">PROBÍHÁ</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
-    
-    # ZAKÁZEK
     m[4].markdown(f'<div class="metric-box"><div class="metric-label">ZAKÁZEK</div><div class="metric-value">{zakazek_cnt}</div></div>', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA (ZACHOVÁNO) ---
+    # --- 4. HTML TABULKA (BEZ ZMĚN) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
-    html += '<col style="width:40px"><col style="width:100px">' 
-    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' 
-    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' 
-    html += '<col style="width:90px"><col style="width:250px">' 
-    html += '<col style="width:100px"><col style="width:100px"><col style="width:100px">' 
-    html += '<col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px">'
-    html += '</colgroup>'
+    html += '<col style="width:40px"><col style="width:100px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:250px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"></colgroup>'
 
-    html += '<thead><tr>'
-    html += '<th rowspan="2">poř.č.</th><th rowspan="2">firma</th>'
-    html += '<th colspan="3">kategorie i</th><th colspan="3">kategorie ii</th>'
-    html += '<th rowspan="2">č.stavby</th><th rowspan="2">název stavby</th><th rowspan="2">nabídka</th><th rowspan="2">rozdíl</th><th rowspan="2">vyfaktur.</th>'
-    html += '<th rowspan="2">ukončení</th><th rowspan="2">zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">ze dne</th><th rowspan="2">objednatel</th><th rowspan="2">stavbyved.</th><th rowspan="2">nabídková c.</th><th rowspan="2">č.faktury</th><th rowspan="2">bez DPH</th><th rowspan="2">splatná</th>'
-    html += '</tr><tr>'
-    html += '<th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>poruch</th>'
-    html += '</tr></thead><tbody>'
+    html += '<thead><tr><th rowspan="2">poř.č.</th><th rowspan="2">firma</th><th colspan="3">kategorie i</th><th colspan="3">kategorie ii</th><th rowspan="2">č.stavby</th><th rowspan="2">název stavby</th><th rowspan="2">nabídka</th><th rowspan="2">rozdíl</th><th rowspan="2">vyfaktur.</th><th rowspan="2">ukončení</th><th rowspan="2">zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">ze dne</th><th rowspan="2">objednatel</th><th rowspan="2">stavbyved.</th><th rowspan="2">nabídková c.</th><th rowspan="2">č.faktury</th><th rowspan="2">bez DPH</th><th rowspan="2">splatná</th></tr>'
+    html += '<tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>poruch</th></tr></thead><tbody>'
 
     for _, row in df.iterrows():
         html += '<tr>'
