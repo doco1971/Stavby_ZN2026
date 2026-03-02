@@ -28,6 +28,7 @@ st.markdown("""
 @st.cache_data(ttl=20)
 def load_data():
     try:
+        # Čte Excel od 5. řádku (skiprows=4)
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
         df = df.dropna(how='all')
         df.columns = [str(c).strip() for c in df.columns]
@@ -38,6 +39,7 @@ def load_data():
 df_all = load_data()
 
 if not df_all.empty:
+    # Identifikace sloupců
     cols = df_all.columns.tolist()
     col_nabidka = next((c for c in cols if 'nabídka' in c.lower() or 'cena' in c.lower()), None)
     col_stav = next((c for c in cols if 'stav' in c.lower()), None)
@@ -59,9 +61,40 @@ if not df_all.empty:
         s_opt = ["Všechny stavy"] + sorted([str(x) for x in df_all[col_stav].dropna().unique()]) if col_stav else ["Vše"]
         sel_s = st.selectbox("Stav", s_opt, label_visibility="collapsed")
 
-    # Filtrování
+    # --- 4. FILTROVÁNÍ ---
     df_f = df_all.copy()
     if hledat:
         df_f = df_f[df_f.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)]
     if col_vedouci and sel_v != "Všichni vedoucí":
-        df_f = df_f[df_f[col_vedouci
+        df_f = df_f[df_f[col_vedouci].astype(str) == sel_v]
+    if col_stav and sel_s != "Všechny stavy":
+        df_f = df_f[df_f[col_stav].astype(str) == sel_s]
+
+    # --- 5. SOUČTY (Kompaktní metriky) ---
+    if col_nabidka:
+        m1, m2, m3, m4, m5 = st.columns(5)
+        def get_sum(kw):
+            if col_stav:
+                return df_f[df_f[col_stav].astype(str).str.contains(kw, case=False, na=False)][col_nabidka].sum()
+            return 0
+
+        m1.metric("CELKEM", f"{df_f[col_nabidka].sum():,.0f} Kč".replace(',', ' '))
+        m2.metric("HOTOVO", f"{get_sum('hotov'):,.0f} Kč".replace(',', ' '))
+        m3.metric("FAKTURACE", f"{get_sum('faktur'):,.0f} Kč".replace(',', ' '))
+        m4.metric("PROBÍHÁ", f"{get_sum('probíh'):,.0f} Kč".replace(',', ' '))
+        m5.metric("STAVEB", len(df_f))
+
+    # --- 6. TABULKA S BAREVNÝM STYLINGEM ---
+    def style_rows(row):
+        color = ''
+        if col_stav:
+            status = str(row[col_stav]).lower()
+            if 'hotov' in status: color = 'background-color: #dcfce7'
+            elif 'probíh' in status: color = 'background-color: #fef9c3'
+            elif 'faktur' in status: color = 'background-color: #dbeafe'
+        return [color] * len(row)
+
+    st.dataframe(df_f.style.apply(style_rows, axis=1), use_container_width=True, height=800)
+    
+else:
+    st.error("Nepodařilo se načíst data. Zkontrolujte název Excel souboru.")
