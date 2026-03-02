@@ -3,75 +3,60 @@ import pandas as pd
 import sqlite3
 import os
 
-# Nastavení stránky
 st.set_page_config(page_title="Evidence zakázek", layout="wide")
 
-# Funkce pro spojení s databází
 def get_connection():
     return sqlite3.connect('zakazky_data.db', check_same_thread=False)
 
-# Inicializace databáze z EXCELU
+# Inicializace DB
 if not os.path.exists('zakazky_data.db'):
     conn = get_connection()
     try:
-        # Čteme přímo XLSX, přeskakujeme první 4 řádky (hlavička je na 5. řádku)
-        # Používáme openpyxl, což je standard pro Excel v Pythonu
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
+        # Vyčištění názvů sloupců - nahradíme vše problémové podtržítkem
+        df.columns = [str(c).strip().replace(' ', '_').replace('.', '_').replace('/', '_') for c in df.columns]
+        df = df.dropna(subset=[df.columns[2]]) # Filtrujeme podle 3. sloupce (Název stavby)
         
-        # Vyčištění názvů sloupců pro SQL (odstranění teček, mezer a lomítek)
-        df.columns = [str(c).replace(' ', '_').replace('.', '').replace('/', '_') for c in df.columns]
-        
-        # Odstranění úplně prázdných řádků
-        df = df.dropna(subset=['název_stavby'])
-        
-        # Vytvoření sloupce 'stav', pokud v Excelu není
         if 'stav' not in df.columns:
             df['stav'] = 'V přípravě'
             
-        # Uložení do SQL
         df.to_sql('zakazky', conn, if_exists='replace', index=False)
         conn.commit()
     except Exception as e:
-        st.error(f"Chyba při načítání Excelu: {e}. Ujistěte se, že se soubor jmenuje přesně: Soupis zakázek tabulka 2026_ZN.xlsx")
+        st.error(f"Chyba při načítání: {e}")
     conn.close()
 
-# Načtení dat pro zobrazení
 conn = get_connection()
 df_display = pd.read_sql('SELECT rowid as ID, * FROM zakazky', conn)
 
-st.title("📋 Evidence zakázek 2026 (z Excelu)")
+st.title("📋 Evidence zakázek 2026")
 
-# Horní vyhledávání
-hledat = st.text_input("🔍 Rychlé hledání v celé tabulce")
+# TADY JSOU TY FILTRY
+hledat = st.text_input("🔍 Rychlé hledání")
 if hledat:
     mask = df_display.apply(lambda row: hledat.lower() in row.astype(str).str.lower().values, axis=1)
     df_display = df_display[mask]
 
-# Zobrazení tabulky - skryjeme ID, které je jen pro databázi
 st.dataframe(df_display.drop(columns=['ID']), use_container_width=True)
 
-# Boční panel pro úpravy
+# OPRAVENÝ BOČNÍ PANEL
 st.sidebar.header("📝 Správa zakázky")
 if not df_display.empty:
-    # Vyhledání zakázky podle Čísla stavby nebo ID
-    možnosti = df_display['čstavby'].tolist()
-    vybrane_cislo = st.sidebar.selectbox("Vyberte číslo stavby", možnosti)
+    # Použijeme druhý sloupec (číslo stavby) bez ohledu na to, jak se přesně jmenuje
+    col_cislo_stavby = df_display.columns[2] 
+    col_nazev_stavby = df_display.columns[3]
     
-    radek = df_display[df_display['čstavby'] == vybrane_cislo].iloc[0]
+    vybrane_cislo = st.sidebar.selectbox("Vyberte stavbu", df_display[col_cislo_stavby].tolist())
+    radek = df_display[df_display[col_cislo_stavby] == vybrane_cislo].iloc[0]
     
-    st.sidebar.info(f"Stavba: {radek['název_stavby']}")
+    st.sidebar.info(f"Vybráno: {radek[col_nazev_stavby]}")
     
-    novy_stav = st.sidebar.selectbox(
-        "Změnit stav realizace", 
-        ["V přípravě", "Probíhá", "Hotovo", "Fakturace"],
-        index=["V přípravě", "Probíhá", "Hotovo", "Fakturace"].index(radek['stav']) if 'stav' in radek else 0
-    )
+    novy_stav = st.sidebar.selectbox("Změnit stav", ["V přípravě", "Probíhá", "Hotovo", "Fakturace"])
     
     if st.sidebar.button("Uložit změny"):
-        curr_id = int(radek['ID'])
-        conn.execute('UPDATE zakazky SET stav = ? WHERE rowid = ?', (novy_stav, curr_id))
+        conn.execute('UPDATE zakazky SET stav = ? WHERE rowid = ?', (novy_stav, int(radek['ID'])))
         conn.commit()
-        st.sidebar.success("Změna uložena!")
+        st.sidebar.success("Uloženo!")
         st.rerun()
 
 conn.close()
