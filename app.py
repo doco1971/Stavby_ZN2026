@@ -17,7 +17,7 @@ st.markdown("""
     }
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
-    /* Základní styl pro všechny boxy (metriky i kategorie) */
+    /* SJEDNOCENÝ STYL BOXŮ SE STEJNOU VÝŠKOU */
     .metric-box-styled {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
@@ -25,31 +25,34 @@ st.markdown("""
         text-align: center;
         margin-bottom: 10px;
         width: 100%;
+        height: 75px; /* Pevná výška pro všechny boxy */
+        display: flex;
+        flex-direction: column;
     }
     .cat-header-main {
         font-size: 0.65rem;
         font-weight: bold;
         background-color: #e5e7eb;
         border-bottom: 1px solid #d1d5db;
-        padding: 2px 0;
+        padding: 4px 0;
         text-transform: uppercase;
+        flex-shrink: 0;
     }
     .cat-content {
         display: flex;
         justify-content: space-around;
-        padding: 5px 0;
-        min-height: 35px;
-        align-items: center;
+        flex-grow: 1; /* Vyplní zbytek boxu */
+        align-items: center; /* Vertikální vycentrování obsahu */
+        padding: 2px 0;
     }
     .cat-sub-item { flex: 1; }
     
-    .metric-label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; }
+    .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; line-height: 1; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
     /* TABULKA */
     .table-container { height: 400px; overflow: auto; border: 1px solid #000; }
     .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
-    .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 5px solid #f1f1f1; }
 
     .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; table-layout: fixed; }
@@ -83,12 +86,14 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. VÝPOČTY (KAT I i KAT II) ---
+    # --- 3. VÝPOČTY ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
 
     for _, row in df.iterrows():
+        # Kategorie I (PS+SNK+BO)
         sum1 = float(row[2]) + float(row[3]) + float(row[4])
+        # Kategorie II (PS+BO+poruch)
         sum2 = float(row[5]) + float(row[6]) + float(row[7])
         
         firma = str(row[1]).strip().upper()
@@ -102,16 +107,14 @@ if not df_raw.empty:
     celkem_val = df[10].sum()
     zakazek_cnt = len(df[df[0] != ''])
 
-    # --- ZOBRAZENÍ METRIK (Sjednocený design) ---
+    # --- ZOBRAZENÍ METRIK (Sjednocená výška) ---
     m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
     
-    # 1. CELKEM (předěláno na styl Kategorie)
+    # 1. CELKEM
     m[0].markdown(f'''
         <div class="metric-box-styled">
             <div class="cat-header-main">CELKEM NABÍDKA</div>
-            <div class="cat-content">
-                <div class="metric-value">{celkem_val:,.2f} Kč</div>
-            </div>
+            <div class="cat-content"><div class="metric-value">{celkem_val:,.2f} Kč</div></div>
         </div>
     '''.replace(",", " "), unsafe_allow_html=True)
     
@@ -137,27 +140,23 @@ if not df_raw.empty:
         </div>
     '''.replace(",", " "), unsafe_allow_html=True)
     
-    # 4. PROBÍHÁ (také sjednoceno)
+    # 4. PROBÍHÁ
     m[3].markdown(f'''
         <div class="metric-box-styled">
             <div class="cat-header-main">PROBÍHÁ</div>
-            <div class="cat-content">
-                <div class="metric-value">0.00 Kč</div>
-            </div>
+            <div class="cat-content"><div class="metric-value">0.00 Kč</div></div>
         </div>
     ''', unsafe_allow_html=True)
     
-    # 5. ZAKÁZEK (také sjednoceno)
+    # 5. ZAKÁZEK
     m[4].markdown(f'''
         <div class="metric-box-styled">
             <div class="cat-header-main">ZAKÁZEK</div>
-            <div class="cat-content">
-                <div class="metric-value">{zakazek_cnt}</div>
-            </div>
+            <div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div>
         </div>
     ''', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA (ZACHOVÁNO) ---
+    # --- 4. HTML TABULKA ---
     # ... (zbytek kódu tabulky zůstává stejný)
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup><col style="width:40px"><col style="width:100px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:250px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"></colgroup>'
