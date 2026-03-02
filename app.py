@@ -116,27 +116,25 @@ def load_data():
 df_raw = load_data()
 
 if not df_raw.empty:
-    # --- HLEDÁNÍ S RESETEM ---
-    if 'search_val' not in st.session_state:
-        st.session_state.search_val = ""
-
+    # --- HLEDÁNÍ S RESETEM (FIXNUTO) ---
     c_h1, c_h2, c_h3 = st.columns([1, 3.5, 0.5])
     with c_h1: 
         st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
     with c_h2: 
-        hledat = st.text_input("", value=st.session_state.search_val, placeholder="Hledat...", label_visibility="collapsed", key="main_search")
+        hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed", key="search_key")
     with c_h3:
         if st.button("❌", help="Smazat hledání"):
-            st.session_state.search_val = ""
+            st.session_state.search_key = ""
             st.rerun()
 
     df = df_raw.copy()
+    # Filtrace prázdných řádků
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
 
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY ---
+    # --- 4. VÝPOČTY (DUR / ZMES) ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
 
@@ -154,7 +152,7 @@ if not df_raw.empty:
     celkem_val = df[10].sum()
     zakazek_cnt = int((df[0] > 0).sum())
 
-    # --- METRIKY ---
+    # --- 5. METRIKY ---
     m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
     m[0].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Celkem Nabídka</div><div class="cat-content"><div class="metric-value">{celkem_val:,.2f} Kč</div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
     m[1].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
@@ -162,17 +160,16 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 5. HTML TABULKA ---
+    # --- 6. HTML TABULKA (23 SLOUPCŮ) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:35px"><col style="width:90px">'
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
-    html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">' 
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:85px">' 
-    html += '<col style="width:85px"><col style="width:85px"><col style="width:85px">' 
-    html += '<col style="width:110px"><col style="width:110px"><col style="width:115px">' 
-    html += '<col style="width:100px"><col style="width:115px"><col style="width:100px">' 
+    html += '<col style="width:115px">'*6
+    html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">'
+    html += '<col style="width:115px"><col style="width:115px">'
+    html += '<col style="width:85px">'*4
+    html += '<col style="width:110px">'*2
+    html += '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px">'
     html += '</colgroup>'
 
     html += '<thead><tr>'
@@ -205,6 +202,7 @@ if not df_raw.empty:
             if str(val).lower() in ["nan", "none"]: val = ""
             html += f'<td{td_cls}>{val}</td>'
         html += '</tr>'
+    
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
