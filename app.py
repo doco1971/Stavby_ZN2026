@@ -49,9 +49,8 @@ st.markdown("""
     .metric-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; line-height: 1; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
-    /* KONTEJNER PRO 15 ŘÁDKŮ + POSUVNÍK */
     .table-container { 
-        height: 450px; /* Výška odpovídající cca 15 řádkům + hlavičce */
+        height: 450px; 
         overflow-y: auto; 
         border: 1px solid #000; 
     }
@@ -60,7 +59,16 @@ st.markdown("""
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
     .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; table-layout: fixed; }
-    .html-table th { position: sticky; top: 0; background-color: #f3f4f6; border: 1px solid #000; padding: 5px; z-index: 10; text-align: center; }
+    .html-table th { 
+        position: sticky; 
+        top: 0; 
+        background-color: #f3f4f6; 
+        border: 1px solid #000; 
+        padding: 5px; 
+        z-index: 10; 
+        text-align: center;
+        text-transform: none; /* Aby zůstala velká písmena tak, jak je napíšeme */
+    }
     .html-table td { border: 1px solid #000; padding: 4px 6px; white-space: nowrap; overflow: hidden; }
     
     .num-align { text-align: right; }
@@ -74,11 +82,9 @@ def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
-        
         cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 10, 11, 12, 19, 21]
         for col in cols_to_fix:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-            
         df = df.fillna('')
         return df
     except: return pd.DataFrame()
@@ -91,7 +97,6 @@ if not df_raw.empty:
     with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
 
     df = df_raw.copy()
-    # Filtr pouze pro řádky s obsahem
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
 
     if hledat:
@@ -115,15 +120,15 @@ if not df_raw.empty:
     celkem_val = df[10].sum()
     zakazek_cnt = int((df[0] > 0).sum())
 
-    # --- METRIKY ---
+    # --- METRIKY (OPRAVENÉ NÁZVY) ---
     m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
-    m[0].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">CELKEM NABÍDKA</div><div class="cat-content"><div class="metric-value">{celkem_val:,.2f} Kč</div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
-    m[1].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">KATEGORIE I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
-    m[2].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">KATEGORIE II</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat2_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat2_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
-    m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">PROBÍHÁ</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
-    m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">ZAKÁZEK</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
+    m[0].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Celkem Nabídka</div><div class="cat-content"><div class="metric-value">{celkem_val:,.2f} Kč</div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    m[1].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    m[2].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie II</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat2_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat2_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
+    m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA (PEVNÁ VÝŠKA) ---
+    # --- 4. HTML TABULKA (OPRAVENÉ HLAVIČKY) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:35px">'
@@ -137,8 +142,34 @@ if not df_raw.empty:
     html += '<col style="width:100px"><col style="width:115px"><col style="width:100px">' 
     html += '</colgroup>'
 
-    html += '<thead><tr><th rowspan="2">poř.č.</th><th rowspan="2">firma</th><th colspan="3">kategorie i</th><th colspan="3">kategorie ii</th><th rowspan="2">č.stavby</th><th rowspan="2">název stavby</th><th rowspan="2">nabídka</th><th rowspan="2">rozdíl</th><th rowspan="2">vyfaktur.</th><th rowspan="2">ukončení</th><th rowspan="2">zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">ze dne</th><th rowspan="2">objednatel</th><th rowspan="2">stavbyved.</th><th rowspan="2">nabídková c.</th><th rowspan="2">č.faktury</th><th rowspan="2">bez DPH</th><th rowspan="2">splatná</th></tr>'
-    html += '<tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>poruch</th></tr></thead><tbody>'
+    # Definice hlavičky s velkými počátečními písmeny
+    html += '<thead>'
+    html += '<tr>'
+    html += '<th rowspan="2">Poř.č.</th>'
+    html += '<th rowspan="2">Firma</th>'
+    html += '<th colspan="3">Kategorie I</th>'
+    html += '<th colspan="3">Kategorie II</th>'
+    html += '<th rowspan="2">Č.stavby</th>'
+    html += '<th rowspan="2">Název stavby</th>'
+    html += '<th rowspan="2">Nabídka</th>'
+    html += '<th rowspan="2">Rozdíl</th>'
+    html += '<th rowspan="2">Vyfaktur.</th>'
+    html += '<th rowspan="2">Ukončení</th>'
+    html += '<th rowspan="2">Zrealiz.</th>'
+    html += '<th rowspan="2">SOD</th>'
+    html += '<th rowspan="2">Ze dne</th>'
+    html += '<th rowspan="2">Objednatel</th>'
+    html += '<th rowspan="2">Stavbyved.</th>'
+    html += '<th rowspan="2">Nabídková c.</th>'
+    html += '<th rowspan="2">Č.faktury</th>'
+    html += '<th rowspan="2">Bez DPH</th>'
+    html += '<th rowspan="2">Splatná</th>'
+    html += '</tr>'
+    html += '<tr>'
+    html += '<th>PS</th><th>SNK</th><th>BO</th>' # Pod-hlavičky Kat I
+    html += '<th>PS</th><th>BO</th><th>Poruch</th>' # Pod-hlavičky Kat II
+    html += '</tr>'
+    html += '</thead><tbody>'
 
     for _, row in df.iterrows():
         html += '<tr>'
