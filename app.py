@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. KONFIGURACE ---
+# --- 1. KONFIGURACE A ŠIROKÝ POSUVNÍK ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -9,14 +9,25 @@ st.markdown("""
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    .block-container { 
-        padding-top: 0.5rem !important; 
-        padding-left: 1rem !important; 
-        padding-right: 1rem !important; 
-        max-width: 100% !important; 
-    }
+    .block-container { padding-top: 0.5rem !important; padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; }
     .stApp { background-color: #f4f6f8; }
-    h4 { margin: 0; padding: 0; font-size: 1.1rem; color: #334155; }
+    
+    /* ŠIRŠÍ A STÁLE VIDITELNÝ POSUVNÍK */
+    ::-webkit-scrollbar {
+        width: 14px !important;
+        height: 14px !important;
+        display: block !important;
+    }
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1 !important;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #888 !important;
+        border-radius: 5px !important;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555 !important;
+    }
     
     /* Kompaktní metriky */
     div[data-testid="stMetric"] { 
@@ -27,7 +38,6 @@ st.markdown("""
         height: 48px !important;
     }
     div[data-testid="stMetricValue"] { font-size: 0.95rem !important; font-weight: 700 !important; }
-    div[data-testid="stMetricLabel"] { font-size: 0.65rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -38,7 +48,7 @@ def load_data():
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
         df = df.dropna(how='all')
         df.columns = [str(c).strip() for c in df.columns]
-        # Ponechat jen řádky, kde je pořadové číslo
+        # Ponechat jen řádky s ID
         df = df[df[df.columns[0]].notna()]
         return df
     except:
@@ -48,27 +58,23 @@ df_raw = load_data()
 
 if not df_raw.empty:
     cols = df_raw.columns.tolist()
-    col_nabidka = next((c for c in cols if 'nabídka' in c.lower()), None)
-    col_rozdil = next((c for c in cols if 'rozdíl' in c.lower()), None)
+    # Najít sloupce (Nabídka, Rozdíl, Bez DPH atd.)
+    fin_cols = [c for c in cols if any(x in c.lower() for x in ['nabídka', 'rozdíl', 'bez dph', 'vyfaktur'])]
     col_stav = next((c for c in cols if 'stav' in c.lower() and 'název' not in c.lower()), None)
 
-    # --- PŘÍSNÁ ÚPRAVA ČÍSEL (round 2) ---
-    fin_cols = [c for c in [col_nabidka, col_rozdil] if c]
+    # Převod na čísla
     for c in fin_cols:
-        # Převedeme na čísla a natvrdo zaokrouhlíme v paměti na 2 místa
-        df_raw[c] = pd.to_numeric(df_raw[c], errors='coerce').fillna(0).round(2)
+        df_raw[c] = pd.to_numeric(df_raw[c], errors='coerce').fillna(0)
 
-    # Formátování dat
+    # Formátování dat (text)
     for c in cols:
-        if 'dne' in c.lower() or 'ukončení' in c.lower():
+        if any(x in c.lower() for x in ['dne', 'ukončení']):
             df_raw[c] = pd.to_datetime(df_raw[c], errors='coerce').dt.strftime('%d.%m.%Y').replace('NaT', '')
 
     # --- 3. LIŠTA A FILTR ---
     c1, c2 = st.columns([1, 3])
-    with c1:
-        st.markdown("#### 🏗️ Evidence 2026")
-    with c2:
-        hledat = st.text_input("Hledat", label_visibility="collapsed", placeholder="Hledat (jméno, stav, zakázku)...")
+    with c1: st.markdown("#### 🏗️ Evidence 2026")
+    with c2: hledat = st.text_input("Hledat", label_visibility="collapsed", placeholder="Hledat...")
 
     df_f = df_raw.copy()
     if hledat:
@@ -79,18 +85,20 @@ if not df_raw.empty:
         return f"{val:,.2f}".replace(",", " ").replace(".", ",") + " Kč"
 
     m1, m2, m3, m4, m5 = st.columns(5)
+    col_n = next((c for c in fin_cols if 'nabídka' in c.lower()), fin_cols[0] if fin_cols else None)
+    
     def get_sum(kw):
-        if col_stav and col_nabidka:
-            return df_f[df_f[col_stav].astype(str).str.contains(kw, case=False, na=False)][col_nabidka].sum()
+        if col_stav and col_n:
+            return df_f[df_f[col_stav].astype(str).str.contains(kw, case=False, na=False)][col_n].sum()
         return 0
 
-    m1.metric("CELKEM", fmt_num(df_f[col_nabidka].sum()) if col_nabidka else "0 Kč")
+    m1.metric("CELKEM", fmt_num(df_f[col_n].sum()) if col_n else "0 Kč")
     m2.metric("HOTOVO", fmt_num(get_sum('hotov')))
     m3.metric("FAKTURACE", fmt_num(get_sum('faktur')))
     m4.metric("PROBÍHÁ", fmt_num(get_sum('probíh')))
     m5.metric("ZAKÁZEK", len(df_f))
 
-    # --- 5. STYLING A TABULKA ---
+    # --- 5. TABULKA (Klíčová část) ---
     def style_row(row):
         styles = [''] * len(row)
         if col_stav:
@@ -101,19 +109,26 @@ if not df_raw.empty:
             elif 'faktur' in s: color = 'background-color: #f0f7ff'
             styles = [color] * len(row)
         
-        # Červená barva pro záporná čísla
-        if col_rozdil:
-            idx = row.index.get_loc(col_rozdil)
-            if float(row[col_rozdil]) < 0:
+        # Červený rozdíl
+        col_r = next((c for c in fin_cols if 'rozdíl' in c.lower()), None)
+        if col_r:
+            idx = row.index.get_loc(col_r)
+            if float(row[col_r]) < 0:
                 styles[idx] += '; color: #d00000; font-weight: bold;'
         return styles
 
-    # Zobrazení tabulky s pevnou výškou pro posuvník
+    # KONFIGURACE SLOUPCŮ - Tady vynutíme formátování
+    # format="%.2f" je jediný způsob, jak zastavit 6 desetinných míst
+    column_config = {
+        c: st.column_config.NumberColumn(format="%.2f") for c in fin_cols
+    }
+
     st.dataframe(
-        df_f.style.apply(style_row, axis=1).format({c: "{:,.2f}".format for c in fin_cols}, thousands=" ", decimal="."),
+        df_f.style.apply(style_row, axis=1),
         use_container_width=True, 
-        height=380, # SNÍŽENO pro zobrazení cca 16 řádků
-        hide_index=True
+        height=455, # Cca 16 řádků
+        hide_index=True,
+        column_config=column_config
     )
     
 else:
