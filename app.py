@@ -1,29 +1,25 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. KONFIGURACE ---
+# --- 1. KONFIGURACE A ROZTAŽENÍ DO KRAJŮ ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
-# --- 2. TOTÁLNÍ STYLING (OPRAVA MEZER A RÁMEČKŮ) ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Odstranění prázdného místa nahoře */
+    /* Využití 100% šířky obrazovky */
     .block-container { 
         padding-top: 0rem !important; 
         padding-bottom: 0rem !important; 
+        padding-left: 1rem !important; 
+        padding-right: 1rem !important;
+        max-width: 100% !important;
     }
 
-    /* Nadpis a hledání v jedné lince */
-    .custom-head { 
-        font-size: 1.2rem; 
-        font-weight: bold; 
-        margin-bottom: 0.5rem; 
-        margin-top: 0.5rem;
-    }
+    .custom-head { font-size: 1.2rem; font-weight: bold; margin-top: 0.5rem; margin-bottom: 0.5rem; }
 
     /* Součty v rámečcích */
     .metric-box {
@@ -39,7 +35,7 @@ st.markdown("""
 
     /* TABULKA A POSUVNÍK - LIMIT 16 ŘÁDKŮ */
     .table-container {
-        height: 520px; /* Pevná výška pro cca 16 řádků */
+        height: 520px; 
         overflow-y: scroll;
         overflow-x: auto;
         border: 1px solid #e5e7eb;
@@ -57,49 +53,50 @@ st.markdown("""
     }
     .html-table td { padding: 6px; border: 1px solid #e5e7eb; white-space: nowrap; }
     
-    /* Barvy */
     .row-hotovo { background-color: #f0fdf4 !important; }
     .row-probiha { background-color: #fffbeb !important; }
     .red-bold { color: #dc2626; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. DATA ---
+# --- 2. NAČTENÍ DAT A ODSTRANĚNÍ NAN ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
         df = df.dropna(how='all')
         df.columns = [str(c).strip() for c in df.columns]
+        # Nahrazení všech 'nan' prázdným řetězcem
+        df = df.fillna('')
         return df
     except: return pd.DataFrame()
 
 df_raw = load_data()
 
 if not df_raw.empty:
-    # Horní lišta: Nadpis + Hledání
+    # Horní lišta
     c_h1, c_h2 = st.columns([1, 4])
     with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
     with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
 
-    # Filtrování
     df = df_raw.copy()
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)]
 
-    # Sloupce
     money_cols = [c for c in df.columns if any(x in c.lower() for x in ['nabídka', 'rozdíl', 'bez dph', 'vyfaktur', 'ps', 'snk', 'bo', 'poruchy'])]
     col_stav = next((c for c in df.columns if 'stav' in c.lower() and 'název' not in c.lower()), None)
     col_nabidka = next((c for c in money_cols if 'nabídka' in c.lower()), money_cols[0] if money_cols else None)
 
-    # --- 4. SOUČTY V RÁMEČCÍCH ---
+    # --- 3. SOUČTY ---
     def get_val(kw=None):
         if not col_nabidka: return 0
         d = df.copy()
-        d[col_nabidka] = pd.to_numeric(d[col_nabidka], errors='coerce').fillna(0)
+        # Převod na čísla pro výpočet (ignoruje prázdné buňky)
+        nums = pd.to_numeric(d[col_nabidka], errors='coerce').fillna(0)
         if kw and col_stav:
-            return d[d[col_stav].astype(str).str.contains(kw, case=False, na=False)][col_nabidka].sum()
-        return d[col_nabidka].sum()
+            mask = d[col_stav].astype(str).str.contains(kw, case=False, na=False)
+            return nums[mask].sum()
+        return nums.sum()
 
     m = st.columns(5)
     labels = ["CELKEM", "HOTOVO", "FAKTURACE", "PROBÍHÁ", "ZAKÁZEK"]
@@ -113,7 +110,7 @@ if not df_raw.empty:
     for i in range(5):
         m[i].markdown(f'<div class="metric-box"><div class="metric-label">{labels[i]}</div><div class="metric-value">{vals[i]}</div></div>', unsafe_allow_html=True)
 
-    # --- 5. TABULKA (HTML) ---
+    # --- 4. TABULKA (HTML) ---
     html = '<div class="table-container"><table class="html-table"><thead><tr>'
     for c in df.columns: html += f'<th>{c}</th>'
     html += '</tr></thead><tbody>'
@@ -128,16 +125,19 @@ if not df_raw.empty:
         html += f'<tr{cls}>'
         for c in df.columns:
             v = row[c]
-            val_str = str(v) if pd.notna(v) else ""
+            val_str = str(v)
             td_cls = ""
 
-            if c in money_cols:
+            # Formátování čísel a peněz
+            if c in money_cols and v != '':
                 try:
                     n = float(v)
                     val_str = f"{n:.2f}"
                     if 'rozdíl' in c.lower() and n < 0: td_cls = ' class="red-bold"'
                 except: pass
-            elif any(x in c.lower() for x in ['dne', 'ukončení']):
+            
+            # Formátování data
+            elif any(x in c.lower() for x in ['dne', 'ukončení']) and v != '':
                 try: val_str = pd.to_datetime(v).strftime('%d.%m.%Y')
                 except: pass
 
@@ -147,4 +147,4 @@ if not df_raw.empty:
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 else:
-    st.error("Data nenalezena.")
+    st.error("Data nenalezena.")    
