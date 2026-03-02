@@ -8,7 +8,13 @@ st.set_page_config(page_title="Evidence 2026", layout="wide")
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    .block-container { padding: 0.5rem !important; }
+    /* ÚPRAVA OKRAJŮ: Zvětšeno odsazení z 0.5rem na 2rem pro odsazení od krajů */
+    .block-container { 
+        padding: 1rem 2rem !important; 
+        max-width: 95% !important; 
+        margin: auto;
+    }
+    
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
     /* Metriky */
@@ -23,7 +29,7 @@ st.markdown("""
     .metric-label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 1rem; font-weight: bold; color: #111827; }
 
-    /* TABULKA */
+    /* TABULKA - ZACHOVÁNO 400PX */
     .table-container { height: 400px; overflow: auto; border: 1px solid #000; }
     .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -38,7 +44,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA ---
+# --- 2. DATA (ZACHOVÁNO 23 SLOUPCŮ) ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
@@ -51,7 +57,6 @@ def load_data():
 df_raw = load_data()
 
 if not df_raw.empty:
-    # Horní lišta: Nadpis a Hledání
     c_h1, c_h2 = st.columns([1, 4])
     with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
     with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
@@ -60,38 +65,26 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. SOUČTY (METRIKY) ---
+    # --- 3. SOUČTY ---
     def get_sum(col_idx):
         return pd.to_numeric(df[col_idx], errors='coerce').fillna(0).sum()
 
     m = st.columns(5)
     labels = ["CELKEM", "HOTOVO", "FAKTURACE", "PROBÍHÁ", "ZAKÁZEK"]
-    
-    # Výpočty (index 10 je sloupec 'nabídka')
     total_val = get_sum(10)
-    # Pro počet zakázek počítáme jen řádky, kde je vyplněné pořadové číslo
     count_val = len(df[df[0] != ''])
 
-    vals = [
-        f"{total_val:,.2f}".replace(",", " ") + " Kč",
-        "0.00 Kč", "0.00 Kč", "0.00 Kč", 
-        str(count_val)
-    ]
+    vals = [f"{total_val:,.2f}".replace(",", " ") + " Kč", "0.00 Kč", "0.00 Kč", "0.00 Kč", str(count_val)]
     
     for i in range(5):
-        m[i].markdown(f'''
-            <div class="metric-box">
-                <div class="metric-label">{labels[i]}</div>
-                <div class="metric-value">{vals[i]}</div>
-            </div>
-        ''', unsafe_allow_html=True)
+        m[i].markdown(f'<div class="metric-box"><div class="metric-label">{labels[i]}</div><div class="metric-value">{vals[i]}</div></div>', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA ---
+    # --- 4. HTML TABULKA (ZACHOVÁNO DVOJITÉ ZÁHLAVÍ A ŠÍŘKY) ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:40px"><col style="width:100px">' # poř, firma
-    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' # Kat I
-    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' # Kat II
+    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' # Kat I (90px dle dohody)
+    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' # Kat II (90px dle dohody)
     html += '<col style="width:90px"><col style="width:250px">' # č.stavby, název
     html += '<col style="width:100px"><col style="width:100px"><col style="width:100px">' # nab, roz, vyf
     html += '<col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px">'
