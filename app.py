@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. KONFIGURACE A ROZTAŽENÍ DO KRAJŮ ---
+# --- 1. KONFIGURACE A ROZTAŽENÍ ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -10,7 +10,6 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Totální využití šířky */
     .block-container { 
         padding-top: 0rem !important; 
         padding-bottom: 0rem !important; 
@@ -21,7 +20,6 @@ st.markdown("""
 
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-top: 0.3rem; margin-bottom: 0.3rem; }
 
-    /* Součty v rámečcích - kompaktní */
     .metric-box {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
@@ -33,9 +31,9 @@ st.markdown("""
     .metric-label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 0.85rem; font-weight: bold; color: #111827; }
 
-    /* TABULKA A POSUVNÍK - SNÍŽENÁ VÝŠKA PRO 16 ŘÁDKŮ */
+    /* TABULKA - VÝŠKA PRO 16 ŘÁDKŮ */
     .table-container {
-        height: 420px; /* Sníženo z 520px, aby řádky nebyly vysoké */
+        height: 400px; 
         overflow-y: scroll;
         overflow-x: auto;
         border: 1px solid #e5e7eb;
@@ -60,13 +58,17 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. NAČTENÍ DAT A ČIŠTĚNÍ ---
+# --- 2. NAČTENÍ DAT ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
+        # Načteme data - skiprows=4 zajistí, že čteme řádek s názvy sloupců (poř.č., firma, PS...)
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
         df = df.dropna(how='all')
+        
+        # Očištění názvů sloupců od mezer
         df.columns = [str(c).strip() for c in df.columns]
+        
         # Nahrazení 'nan' prázdným místem
         df = df.fillna('')
         return df
@@ -84,9 +86,15 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in r.astype(str).str.lower().values, axis=1)]
 
-    money_cols = [c for c in df.columns if any(x in c.lower() for x in ['nabídka', 'rozdíl', 'bez dph', 'vyfaktur', 'ps', 'snk', 'bo', 'poruchy'])]
+    # Definice peněžních sloupců podle tvého originálu
+    money_cols = [
+        'PS', 'SNK', 'BO', 'PS.1', 'BO.1', 'poruch', 'nabídka', 
+        'rozdíl', 'vyfaktur', 'nabídková cena', 'částka bez DPH'
+    ]
+    # Najdeme sloupec se stavem pro barvení
     col_stav = next((c for c in df.columns if 'stav' in c.lower() and 'název' not in c.lower()), None)
-    col_nabidka = next((c for c in money_cols if 'nabídka' in c.lower()), money_cols[0] if money_cols else None)
+    # Hlavní sloupec pro součty
+    col_nabidka = next((c for c in df.columns if 'nabídka' in c.lower()), None)
 
     # --- 3. SOUČTY ---
     def get_val(kw=None):
@@ -111,7 +119,8 @@ if not df_raw.empty:
 
     # --- 4. TABULKA (HTML) ---
     html = '<div class="table-container"><table class="html-table"><thead><tr>'
-    for c in df.columns: html += f'<th>{c}</th>'
+    for c in df.columns: 
+        html += f'<th>{c}</th>'
     html += '</tr></thead><tbody>'
 
     for _, row in df.iterrows():
@@ -127,13 +136,16 @@ if not df_raw.empty:
             val_str = str(v)
             td_cls = ""
 
-            if c in money_cols and v != '':
+            # Formátování peněz
+            if any(m in c.lower() for m in money_cols) and v != '':
                 try:
                     n = float(v)
                     val_str = f"{n:.2f}"
                     if 'rozdíl' in c.lower() and n < 0: td_cls = ' class="red-bold"'
                 except: pass
-            elif any(x in c.lower() for x in ['dne', 'ukončení']) and v != '':
+            
+            # Formátování dat
+            elif any(x in c.lower() for x in ['dne', 'ukončení', 'splatná']) and v != '':
                 try: val_str = pd.to_datetime(v).strftime('%d.%m.%Y')
                 except: pass
 
