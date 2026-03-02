@@ -89,22 +89,17 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. SOUČTY (OPRAVENÉ INDEXY) ---
+    # --- 3. SOUČTY (OPRAVENO: DUR=3, ZMES=4) ---
     def get_sum(col_idx):
         return pd.to_numeric(df[col_idx], errors='coerce').fillna(0).sum()
 
     m = st.columns([1.2, 2.2, 1.2, 1.2, 1])
     
-    # Celkem nabídka (Sloupec K = index 10)
-    celkem_val = get_sum(10)
-    # DUR (Předpokládám Sloupec K = index 10)
-    dur_val = get_sum(10)
-    # ZMES (Předpokládám Sloupec L = index 11)
-    zmes_val = get_sum(11)
-    
+    celkem_val = get_sum(10) # Celkem Nabídka
+    dur_val = get_sum(3)    # DUR (Sloupec SNK I)
+    zmes_val = get_sum(4)   # ZMES (Sloupec BO I)
     zakazek_cnt = len(df[df[0] != ''])
 
-    # Boxy
     m[0].markdown(f'<div class="metric-box"><div class="metric-label">CELKEM</div><div class="metric-value">{celkem_val:,.2f} Kč'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
     
     m[1].markdown(f'''
@@ -127,7 +122,7 @@ if not df_raw.empty:
     m[3].markdown(f'<div class="metric-box"><div class="metric-label">PROBÍHÁ</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
     m[4].markdown(f'<div class="metric-box"><div class="metric-label">ZAKÁZEK</div><div class="metric-value">{zakazek_cnt}</div></div>', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA (BEZ ZMĚN) ---
+    # --- 4. HTML TABULKA ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:40px"><col style="width:100px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:250px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"></colgroup>'
