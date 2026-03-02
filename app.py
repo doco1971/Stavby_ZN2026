@@ -29,12 +29,16 @@ st.markdown("""
         justify-content: center;
     }
 
+    /* ZÚŽENÝ SPOJENÝ BOX KATEGORIE I */
     .cat-box-double {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
         border-radius: 4px;
         text-align: center;
         margin-bottom: 10px;
+        max-width: 250px; /* Omezení maximální šířky */
+        margin-left: auto;
+        margin-right: auto;
     }
     .cat-header-main {
         font-size: 0.65rem;
@@ -54,6 +58,7 @@ st.markdown("""
     .metric-label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 0.95rem; font-weight: bold; color: #111827; }
 
+    /* TABULKA (ZACHOVÁNO) */
     .table-container { height: 400px; overflow: auto; border: 1px solid #000; }
     .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -68,13 +73,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA ---
+# --- 2. DATA (ZACHOVÁNO) ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
-        # Převedeme vše na numerické hodnoty tam, kde sčítáme
         for col in [2, 3, 4, 10, 11, 12]:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         return df
@@ -91,25 +95,23 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. OPRAVENÝ VÝPOČET SOUČTŮ ---
+    # --- 3. DYNAMICKÉ SOUČTY (ZAFIXOVANÁ LOGIKA) ---
     dur_val = 0.0
     zmes_val = 0.0
 
     for _, row in df.iterrows():
-        # Součet Kategorie I (sloupce C, D, E -> indexy 2, 3, 4)
         line_sum = float(row[2]) + float(row[3]) + float(row[4])
-        
         firma = str(row[1]).strip().upper()
         if "DUR" in firma:
             dur_val += line_sum
         elif "ZMES" in firma:
             zmes_val += line_sum
 
-    celkem_val = df[10].sum() # Sloupec K (index 10)
+    celkem_val = df[10].sum()
     zakazek_cnt = len(df[df[0] != ''])
 
-    # --- ZOBRAZENÍ METRIK ---
-    m = st.columns([1.2, 2.2, 1.2, 1.2, 1])
+    # --- ZOBRAZENÍ METRIK (UPRAVENÉ POMĚRY SLOUPCŮ) ---
+    m = st.columns([1.2, 1.6, 1.2, 1.2, 1]) # Sloupec pro Kat. I zúžen z 2.2 na 1.6
     
     m[0].markdown(f'<div class="metric-box"><div class="metric-label">CELKEM</div><div class="metric-value">{celkem_val:,.2f} Kč'.replace(",", " ")+'</div></div>', unsafe_allow_html=True)
     
@@ -133,10 +135,9 @@ if not df_raw.empty:
     m[3].markdown(f'<div class="metric-box"><div class="metric-label">PROBÍHÁ</div><div class="metric-value">0.00 Kč</div></div>', unsafe_allow_html=True)
     m[4].markdown(f'<div class="metric-box"><div class="metric-label">ZAKÁZEK</div><div class="metric-value">{zakazek_cnt}</div></div>', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA ---
+    # --- 4. HTML TABULKA (ZACHOVÁNO) ---
     html = '<div class="table-container"><table class="html-table">'
-    html += '<colgroup>'
-    html += '<col style="width:40px"><col style="width:100px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:250px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"></colgroup>'
+    html += '<colgroup><col style="width:40px"><col style="width:100px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:250px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"></colgroup>'
     html += '<thead><tr><th rowspan="2">poř.č.</th><th rowspan="2">firma</th><th colspan="3">kategorie i</th><th colspan="3">kategorie ii</th><th rowspan="2">č.stavby</th><th rowspan="2">název stavby</th><th rowspan="2">nabídka</th><th rowspan="2">rozdíl</th><th rowspan="2">vyfaktur.</th><th rowspan="2">ukončení</th><th rowspan="2">zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">ze dne</th><th rowspan="2">objednatel</th><th rowspan="2">stavbyved.</th><th rowspan="2">nabídková c.</th><th rowspan="2">č.faktury</th><th rowspan="2">bez DPH</th><th rowspan="2">splatná</th></tr>'
     html += '<tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>poruch</th></tr></thead><tbody>'
 
@@ -145,7 +146,6 @@ if not df_raw.empty:
         for i in range(23):
             val = row[i]
             td_cls = ""
-            # Formátování čísel pro zobrazení
             if i in [2,3,4,5,6,7,10,11,12,19,21]:
                 try:
                     n = float(val)
