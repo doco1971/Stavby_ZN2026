@@ -68,7 +68,9 @@ def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
-        for col in [2, 3, 4, 5, 6, 7, 10, 11, 12]:
+        # Vyčistíme NaN hodnoty hned při načítání pro klíčové sloupce
+        cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 10, 11, 12, 19, 21]
+        for col in cols_to_fix:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         return df
     except: return pd.DataFrame()
@@ -89,9 +91,7 @@ if not df_raw.empty:
     cat2_dur, cat2_zmes = 0.0, 0.0
 
     for _, row in df.iterrows():
-        # Kategorie I (PS+SNK+BO)
         sum1 = float(row[2]) + float(row[3]) + float(row[4])
-        # Kategorie II (PS+BO+poruch)
         sum2 = float(row[5]) + float(row[6]) + float(row[7])
         
         firma = str(row[1]).strip().upper()
@@ -103,7 +103,7 @@ if not df_raw.empty:
             cat2_zmes += sum2
 
     celkem_val = df[10].sum()
-    zakazek_cnt = len(df[df[0] != ''])
+    zakazek_cnt = len(df[df[0] > 0]) # Počet řádků, kde je poř.č. větší než 0
 
     # --- ZOBRAZENÍ METRIK ---
     m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
@@ -114,31 +114,38 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">PROBÍHÁ</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">ZAKÁZEK</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA (OPRAVENÁ ŠÍŘKA A ZAROVNÁNÍ) ---
+    # --- 4. HTML TABULKA (FIRMA 90PX + OPRAVA NAN) ---
     html = '<div class="table-container"><table class="html-table">'
-    html += '<colgroup><col style="width:35px"><col style="width:100px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:250px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"></colgroup>'
+    html += '<colgroup><col style="width:35px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:250px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"></colgroup>'
     html += '<thead><tr><th rowspan="2">poř.č.</th><th rowspan="2">firma</th><th colspan="3">kategorie i</th><th colspan="3">kategorie ii</th><th rowspan="2">č.stavby</th><th rowspan="2">název stavby</th><th rowspan="2">nabídka</th><th rowspan="2">rozdíl</th><th rowspan="2">vyfaktur.</th><th rowspan="2">ukončení</th><th rowspan="2">zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">ze dne</th><th rowspan="2">objednatel</th><th rowspan="2">stavbyved.</th><th rowspan="2">nabídková c.</th><th rowspan="2">č.faktury</th><th rowspan="2">bez DPH</th><th rowspan="2">splatná</th></tr>'
     html += '<tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>poruch</th></tr></thead><tbody>'
 
     for _, row in df.iterrows():
+        # Pokud je poř.č. 0, přeskočíme zobrazení prázdných řádků (volitelné, ale čistší)
+        if row[0] == 0 and row[9] == "": continue
+        
         html += '<tr>'
         for i in range(23):
             val = row[i]
             td_cls = ""
             
-            # Zarovnání doprava pro poř.č. (index 0) a číselné sloupce
-            if i == 0 or i in [2,3,4,5,6,7,10,11,12,19,21]:
+            if i == 0: # Poř. č.
+                td_cls = ' class="num-align"'
+                val = int(val) if val != 0 else ""
+            elif i in [2,3,4,5,6,7,10,11,12,19,21]: # Číselné sloupce
                 td_cls = ' class="num-align"'
                 try:
-                    if i != 0: # Formátování čísel (kromě poř.č.)
-                        n = float(val)
-                        val = f"{n:,.2f}".replace(",", " ") if n != 0 else ""
-                        if i == 11 and n < 0: td_cls = ' class="red-bold"'
-                except:
-                    if i != 0: val = ""
-            elif i in [13, 14, 16, 22]:
+                    n = float(val)
+                    val = f"{n:,.2f}".replace(",", " ") if n != 0 else ""
+                    if i == 11 and n < 0: td_cls = ' class="red-bold"'
+                except: val = ""
+            elif i in [13, 14, 16, 22]: # Datumy
                 try: val = pd.to_datetime(val).strftime('%d.%m.%Y')
                 except: val = ""
+            
+            # Ošetření zbytku proti NaN textu
+            if val == "nan" or val == "NaN": val = ""
+                
             html += f'<td{td_cls}>{val}</td>'
         html += '</tr>'
     html += '</tbody></table></div>'
