@@ -17,26 +17,28 @@ st.markdown("""
     }
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
-    /* Metriky podle screenshotu */
+    /* Metriky přesně podle screenshotu */
     .metric-row { display: flex; gap: 10px; margin-bottom: 10px; }
     .metric-box-styled {
         border: 1px solid #d1d5db;
-        background-color: #f9fafb;
+        background-color: #ffffff;
         border-radius: 8px;
         flex: 1;
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
     .cat-header-main {
-        font-size: 0.75rem; font-weight: bold; background-color: #e5e7eb;
+        font-size: 0.75rem; font-weight: bold; background-color: #f3f4f6;
         border-bottom: 1px solid #d1d5db; padding: 6px 0; text-transform: uppercase;
         text-align: center; color: #374151;
     }
-    .cat-content { display: flex; flex-grow: 1; align-items: center; padding: 10px 0; }
-    .cat-sub-item { flex: 1; text-align: center; }
+    .cat-content { display: flex; flex-grow: 1; align-items: center; padding: 8px 0; }
+    .cat-sub-item { flex: 1; text-align: center; position: relative; }
     .metric-label { font-size: 0.65rem; color: #9ca3af; text-transform: uppercase; margin-bottom: 2px; }
-    .metric-value { font-size: 1.2rem; font-weight: bold; color: #111827; }
+    .metric-value { font-size: 1.25rem; font-weight: bold; color: #000000; }
+    .v-line { position: absolute; right: 0; top: 20%; bottom: 20%; width: 1px; background-color: #d1d5db; }
 
     /* KONTEJNER TABULKY */
     .table-container { 
@@ -50,7 +52,7 @@ st.markdown("""
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
-    /* TABULKA - KLASICKÉ ČISTÉ LINKY */
+    /* TABULKA - ČISTÁ MŘÍŽKA */
     .html-table { 
         width: 100%; 
         border-collapse: separate; 
@@ -76,10 +78,9 @@ st.markdown("""
         z-index: 10; 
         text-align: center;
         font-weight: bold;
-        border-top: none;
     }
 
-    .html-table thead tr:nth-child(1) th { top: 0; z-index: 20; border-top: none; }
+    .html-table thead tr:nth-child(1) th { top: 0; z-index: 20; }
     .html-table thead tr:nth-child(2) th { top: 31px; z-index: 20; } 
     
     /* ZAROVNÁNÍ */
@@ -140,26 +141,31 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY (Dle zadání: Kat I = PS+SNK+BO, Kat II = PS+BO+Poruch) ---
+    # --- 4. VÝPOČTY (Kat I: PS+SNK+BO | Kat II: PS+BO+Poruch) ---
+    # Podle Saved Information: suma Kat I se přičítá k DUR nebo ZMES podle sloupce 'firma'
     cat1_dur = cat1_zmes = cat2_dur = cat2_zmes = 0.0
     for _, row in df.iterrows():
         s1 = float(row[2]) + float(row[3]) + float(row[4])
         s2 = float(row[5]) + float(row[6]) + float(row[7])
         f = str(row[1]).strip().upper()
-        if "DUR" in f: cat1_dur += s1; cat2_dur += s2
-        elif "ZMES" in f: cat1_zmes += s1; cat2_zmes += s2
+        if "DUR" in f:
+            cat1_dur += s1
+            cat2_dur += s2
+        elif "ZMES" in f:
+            cat1_zmes += s1
+            cat2_zmes += s2
 
     celkem_val = df[10].sum()
     zakazek_cnt = int((df[0] > 0).sum())
 
-    # --- 5. METRIKY ---
+    # --- 5. METRIKY (Vzhled dle screenshotu) ---
     m1, m2, m3, m4, m5 = st.columns([1, 1.5, 1.5, 1, 0.8]) 
     
     m1.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Celkem Nabídka</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-value">{celkem_val:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
     
-    m2.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    m2.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div><div class="v-line"></div></div><div class="cat-sub-item"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
     
-    m3.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie II</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat2_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat2_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
+    m3.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie II</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat2_dur:,.2f}</div><div class="v-line"></div></div><div class="cat-sub-item"><div class="metric-label">ZMES</div><div class="metric-value">{cat2_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
     
     m4.markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-value">0.00</div></div></div></div>''', unsafe_allow_html=True)
     
@@ -183,6 +189,7 @@ if not df_raw.empty:
     html += '<th rowspan="2">Stavbyved.</th><th rowspan="2">Nabídková c.</th><th rowspan="2">Č.faktury</th><th rowspan="2">Bez DPH</th><th rowspan="2">Splatná</th>'
     html += '</tr><tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th></tr></thead><tbody>'
 
+    # Zobrazení dat (15 řádků na stránku je zaručeno výškou kontejneru 450px)
     for _, row in df.iterrows():
         html += '<tr>'
         for i in range(23):
