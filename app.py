@@ -52,46 +52,46 @@ st.markdown("""
     .table-container { 
         height: 450px; 
         overflow-y: auto; 
-        /* Celkový vnější rámec kontejneru */
-        border-top: 1px solid #000;
-        border-left: 1px solid #000;
+        border: 1px solid #000;
     }
     .table-container::-webkit-scrollbar { width: 25px; height: 25px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
     .table-container::-webkit-scrollbar-thumb { background: #888; border: 4px solid #f1f1f1; }
 
-    /* TABULKA BEZ ZDVOJENÝCH ČAR */
+    /* FINÁLNÍ ÚPRAVA ČAR BEZ STÍNŮ */
     .html-table { 
         width: 100%; 
         border-collapse: separate; 
         border-spacing: 0; 
         font-family: sans-serif; 
         font-size: 12px; 
-        table-layout: fixed; 
-        border: none;
+        table-layout: fixed;
     }
     
-    /* Každá buňka kreslí jen linku vpravo a dole */
-    .html-table th, .html-table td {
-        box-shadow: inset -1px -1px 0px #000; 
+    /* Čáry pro tělo tabulky */
+    .html-table td {
+        border-right: 1px solid #000;
+        border-bottom: 1px solid #000;
         padding: 4px 8px;
         white-space: nowrap;
         overflow: hidden;
-        border: none;
     }
 
+    /* Čáry pro hlavičku - sticky kompatibilní */
     .html-table th { 
         position: sticky; 
         background-color: #f3f4f6; 
         z-index: 10; 
         text-align: center;
         font-weight: bold;
+        border-right: 1px solid #000;
+        border-bottom: 1px solid #000;
     }
 
     /* První řada hlavičky */
     .html-table thead tr:nth-child(1) th { 
         top: 0; 
-        z-index: 12; 
+        z-index: 12;
     }
 
     /* Druhá řada hlavičky */
@@ -100,6 +100,7 @@ st.markdown("""
         z-index: 12; 
     }
     
+    /* Zarovnání */
     .num-align { text-align: right; }
     .txt-align { text-align: left; }
     .center-align { text-align: center; }
@@ -135,7 +136,6 @@ def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=5, header=None, engine='openpyxl')
         df = df.iloc[:, :23]
-        # Převod sloupců na čísla dle Saved Info
         cols_to_fix = [0, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 19, 21]
         for col in cols_to_fix:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -155,12 +155,11 @@ if not df_raw.empty:
     with c_h3: st.button("❌", help="Smazat hledání", on_click=reset_search)
 
     df = df_raw.copy()
-    # Filtrace prázdných řádků
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY DLE PRAVIDEL ---
+    # --- 4. VÝPOČTY (Dle uložených informací) ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
     for _, row in df.iterrows():
@@ -171,10 +170,10 @@ if not df_raw.empty:
         
         firma = str(row[1]).strip().upper()
         if "DUR" in firma:
-            cat1_dur += sum1
+            cat1_dur += sum1 #
             cat2_dur += sum2
         elif "ZMES" in firma:
-            cat1_zmes += sum1
+            cat1_zmes += sum1 #
             cat2_zmes += sum2
 
     celkem_val = df[10].sum()
@@ -188,7 +187,8 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 6. HTML TABULKA (15 řádků na stranu dle Saved Info) ---
+    # --- 6. HTML TABULKA (450px výška, 15 řádků/strana v logice skrolování) ---
+    #
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
     html += '<col style="width:45px"><col style="width:95px">'
