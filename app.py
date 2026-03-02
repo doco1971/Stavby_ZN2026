@@ -10,32 +10,32 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Využití 100% šířky obrazovky */
+    /* Totální využití šířky */
     .block-container { 
         padding-top: 0rem !important; 
         padding-bottom: 0rem !important; 
-        padding-left: 1rem !important; 
-        padding-right: 1rem !important;
+        padding-left: 0.5rem !important; 
+        padding-right: 0.5rem !important;
         max-width: 100% !important;
     }
 
-    .custom-head { font-size: 1.2rem; font-weight: bold; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+    .custom-head { font-size: 1.1rem; font-weight: bold; margin-top: 0.3rem; margin-bottom: 0.3rem; }
 
-    /* Součty v rámečcích */
+    /* Součty v rámečcích - kompaktní */
     .metric-box {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
-        padding: 5px 10px;
+        padding: 3px 8px;
         border-radius: 4px;
         text-align: center;
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
-    .metric-label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; }
-    .metric-value { font-size: 0.9rem; font-weight: bold; color: #111827; }
+    .metric-label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; }
+    .metric-value { font-size: 0.85rem; font-weight: bold; color: #111827; }
 
-    /* TABULKA A POSUVNÍK - LIMIT 16 ŘÁDKŮ */
+    /* TABULKA A POSUVNÍK - SNÍŽENÁ VÝŠKA PRO 16 ŘÁDKŮ */
     .table-container {
-        height: 520px; 
+        height: 420px; /* Sníženo z 520px, aby řádky nebyly vysoké */
         overflow-y: scroll;
         overflow-x: auto;
         border: 1px solid #e5e7eb;
@@ -45,13 +45,14 @@ st.markdown("""
     .table-container::-webkit-scrollbar-track { background: #f1f1f1 !important; }
     .table-container::-webkit-scrollbar-thumb { background: #888 !important; border: 5px solid #f1f1f1; }
 
-    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 13px; }
+    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; }
     .html-table th { 
         position: sticky; top: 0; 
         background-color: #f3f4f6; color: #374151; 
-        padding: 8px; border: 1px solid #e5e7eb; z-index: 10;
+        padding: 6px; border: 1px solid #e5e7eb; z-index: 10;
+        text-align: left;
     }
-    .html-table td { padding: 6px; border: 1px solid #e5e7eb; white-space: nowrap; }
+    .html-table td { padding: 4px 6px; border: 1px solid #e5e7eb; white-space: nowrap; }
     
     .row-hotovo { background-color: #f0fdf4 !important; }
     .row-probiha { background-color: #fffbeb !important; }
@@ -59,14 +60,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. NAČTENÍ DAT A ODSTRANĚNÍ NAN ---
+# --- 2. NAČTENÍ DAT A ČIŠTĚNÍ ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
         df = pd.read_excel('Soupis zakázek tabulka 2026_ZN.xlsx', skiprows=4, engine='openpyxl')
         df = df.dropna(how='all')
         df.columns = [str(c).strip() for c in df.columns]
-        # Nahrazení všech 'nan' prázdným řetězcem
+        # Nahrazení 'nan' prázdným místem
         df = df.fillna('')
         return df
     except: return pd.DataFrame()
@@ -75,7 +76,7 @@ df_raw = load_data()
 
 if not df_raw.empty:
     # Horní lišta
-    c_h1, c_h2 = st.columns([1, 4])
+    c_h1, c_h2 = st.columns([1, 5])
     with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
     with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
 
@@ -90,11 +91,9 @@ if not df_raw.empty:
     # --- 3. SOUČTY ---
     def get_val(kw=None):
         if not col_nabidka: return 0
-        d = df.copy()
-        # Převod na čísla pro výpočet (ignoruje prázdné buňky)
-        nums = pd.to_numeric(d[col_nabidka], errors='coerce').fillna(0)
+        nums = pd.to_numeric(df[col_nabidka], errors='coerce').fillna(0)
         if kw and col_stav:
-            mask = d[col_stav].astype(str).str.contains(kw, case=False, na=False)
+            mask = df[col_stav].astype(str).str.contains(kw, case=False, na=False)
             return nums[mask].sum()
         return nums.sum()
 
@@ -128,15 +127,12 @@ if not df_raw.empty:
             val_str = str(v)
             td_cls = ""
 
-            # Formátování čísel a peněz
             if c in money_cols and v != '':
                 try:
                     n = float(v)
                     val_str = f"{n:.2f}"
                     if 'rozdíl' in c.lower() and n < 0: td_cls = ' class="red-bold"'
                 except: pass
-            
-            # Formátování data
             elif any(x in c.lower() for x in ['dne', 'ukončení']) and v != '':
                 try: val_str = pd.to_datetime(v).strftime('%d.%m.%Y')
                 except: pass
@@ -147,4 +143,4 @@ if not df_raw.empty:
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 else:
-    st.error("Data nenalezena.")    
+    st.error("Data nenalezena.")
