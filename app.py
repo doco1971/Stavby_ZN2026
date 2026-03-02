@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE A STYLY (PŘESNĚ DLE TVÉHO ORIGINÁLU) ---
+# --- 1. KONFIGURACE A STYLY (TVŮJ ORIGINÁL) ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -98,9 +98,9 @@ if not st.session_state.logged_in:
                 st.rerun()
             else:
                 st.error("Nesprávné jméno nebo heslo")
-    st.stop()
+    st.stop() # Tady kód končí, dokud se uživatel nepřihlásí
 
-# --- 3. DATA (TVÁ PŮVODNÍ LOGIKA) ---
+# --- 3. DATA (TVŮJ ORIGINÁL) ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
@@ -111,8 +111,7 @@ def load_data():
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         df = df.fillna('')
         return df
-    except:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
 df_raw = load_data()
 
@@ -127,7 +126,7 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY (DUR / ZMES) ---
+    # --- 4. VÝPOČTY (TVŮJ ORIGINÁL) ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
 
@@ -145,7 +144,7 @@ if not df_raw.empty:
     celkem_val = df[10].sum()
     zakazek_cnt = int((df[0] > 0).sum())
 
-    # --- 5. METRIKY ---
+    # --- METRIKY ---
     m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
     m[0].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Celkem Nabídka</div><div class="cat-content"><div class="metric-value">{celkem_val:,.2f} Kč</div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
     m[1].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
@@ -153,11 +152,27 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 6. TABULKA ---
+    # --- 5. HTML TABULKA (TVŮJ ORIGINÁL) ---
     html = '<div class="table-container"><table class="html-table">'
-    html += '<colgroup><col style="width:35px"><col style="width:90px">' + '<col style="width:115px">'*6 + '<col style="width:90px"><col style="width:250px"><col style="width:115px">' + '<col style="width:115px">'*3 + '<col style="width:85px">'*4 + '<col style="width:110px">'*2 + '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px"></colgroup>'
-    html += '<thead><tr><th rowspan="2">Poř.č.</th><th rowspan="2">Firma</th><th colspan="3">Kategorie I</th><th colspan="3">Kategorie II</th><th rowspan="2">Č.stavby</th><th rowspan="2">Název stavby</th><th rowspan="2">Nabídka</th><th rowspan="2">Rozdíl</th><th rowspan="2">Vyfaktur.</th><th rowspan="2">Ukončení</th><th rowspan="2">Zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">Ze dne</th><th rowspan="2">Objednatel</th><th rowspan="2">Stavbyved.</th><th rowspan="2">Nabídková c.</th><th rowspan="2">Č.faktury</th><th rowspan="2">Bez DPH</th><th rowspan="2">Splatná</th></tr>'
-    html += '<tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th></tr></thead><tbody>'
+    html += '<colgroup>'
+    html += '<col style="width:35px"><col style="width:90px">'
+    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
+    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
+    html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">' 
+    html += '<col style="width:115px"><col style="width:115px"><col style="width:85px">' 
+    html += '<col style="width:85px"><col style="width:85px"><col style="width:85px">' 
+    html += '<col style="width:110px"><col style="width:110px"><col style="width:115px">' 
+    html += '<col style="width:100px"><col style="width:115px"><col style="width:100px">' 
+    html += '</colgroup>'
+
+    html += '<thead><tr>'
+    html += '<th rowspan="2">Poř.č.</th><th rowspan="2">Firma</th><th colspan="3">Kategorie I</th><th colspan="3">Kategorie II</th>'
+    html += '<th rowspan="2">Č.stavby</th><th rowspan="2">Název stavby</th><th rowspan="2">Nabídka</th><th rowspan="2">Rozdíl</th><th rowspan="2">Vyfaktur.</th>'
+    html += '<th rowspan="2">Ukončení</th><th rowspan="2">Zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">Ze dne</th><th rowspan="2">Objednatel</th>'
+    html += '<th rowspan="2">Stavbyved.</th><th rowspan="2">Nabídková c.</th><th rowspan="2">Č.faktury</th><th rowspan="2">Bez DPH</th><th rowspan="2">Splatná</th>'
+    html += '</tr><tr>'
+    html += '<th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th>'
+    html += '</tr></thead><tbody>'
 
     for _, row in df.iterrows():
         html += '<tr>'
@@ -179,9 +194,11 @@ if not df_raw.empty:
                 except: val = ""
             if str(val).lower() in ["nan", "none"]: val = ""
             html += f'<td{td_cls}>{val}</td>'
-        html += '</tr></tbody></table></div>'
+        html += '</tr>'
+    html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
+    # Odhlášení v bočním panelu
     if st.sidebar.button("Odhlásit"):
         st.session_state.logged_in = False
         st.rerun()
