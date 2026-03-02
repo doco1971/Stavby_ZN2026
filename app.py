@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE A STYLY (TVÉ PŮVODNÍ) ---
+# --- 1. KONFIGURACE A STYLY (PŘESNĚ PODLE TVÉHO PŮVODNÍHO) ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -76,7 +76,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. PŘIHLAŠOVACÍ SYSTÉM ---
+# --- 2. PŘIHLAŠOVACÍ SYSTÉM (S PŘÍKAZEM STOP) ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
@@ -98,7 +98,7 @@ if not st.session_state.logged_in:
                 st.rerun()
             else:
                 st.error("Nesprávné jméno nebo heslo")
-    st.stop() # Zastaví zbytek kódu, pokud není přihlášen
+    st.stop()  # Tady se kód zastaví a nepustí nikoho k datům bez hesla
 
 # --- 3. DATA (TVÁ PŮVODNÍ LOGIKA) ---
 @st.cache_data(ttl=1)
@@ -111,7 +111,8 @@ def load_data():
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         df = df.fillna('')
         return df
-    except: return pd.DataFrame()
+    except:
+        return pd.DataFrame()
 
 df_raw = load_data()
 
@@ -128,7 +129,7 @@ if not df_raw.empty:
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 4. VÝPOČTY (TVÉ PŮVODNÍ) ---
+    # --- 4. VÝPOČTY (PS + SNK + BO) ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
 
@@ -154,9 +155,20 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 6. HTML TABULKA (TVÁ PŮVODNÍ) ---
+    # --- 6. FORMULÁŘ (POUZE PRO ADMINA) ---
+    if st.session_state.role == "supervisor":
+        with st.expander("➕ NOVÝ ZÁZNAM"):
+            st.info("Zde budeme brzy přidávat nové zakázky.")
+
+    # --- 7. HTML TABULKA (MŘÍŽKA, SCROLLBAR, 23 SLOUPCŮ) ---
     html = '<div class="table-container"><table class="html-table">'
-    html += '<colgroup><col style="width:35px"><col style="width:90px">' + '<col style="width:115px">'*6 + '<col style="width:90px"><col style="width:250px"><col style="width:115px">' + '<col style="width:115px">'*3 + '<col style="width:85px">'*4 + '<col style="width:110px">'*2 + '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px"></colgroup>'
+    html += '<colgroup>'
+    html += '<col style="width:35px"><col style="width:90px">'
+    html += '<col style="width:115px">'*6
+    html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">'
+    html += '<col style="width:115px">'*3 + '<col style="width:85px">'*4
+    html += '<col style="width:110px">'*2 + '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px">'
+    html += '</colgroup>'
 
     html += '<thead>'
     html += '<tr><th rowspan="2">Poř.č.</th><th rowspan="2">Firma</th><th colspan="3">Kategorie I</th><th colspan="3">Kategorie II</th><th rowspan="2">Č.stavby</th><th rowspan="2">Název stavby</th><th rowspan="2">Nabídka</th><th rowspan="2">Rozdíl</th><th rowspan="2">Vyfaktur.</th><th rowspan="2">Ukončení</th><th rowspan="2">Zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">Ze dne</th><th rowspan="2">Objednatel</th><th rowspan="2">Stavbyved.</th><th rowspan="2">Nabídková c.</th><th rowspan="2">Č.faktury</th><th rowspan="2">Bez DPH</th><th rowspan="2">Splatná</th></tr>'
@@ -187,7 +199,7 @@ if not df_raw.empty:
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
-    # Tlačítko pro odhlášení v bočním panelu
+    # Tlačítko pro odhlášení
     if st.sidebar.button("Odhlásit"):
         st.session_state.logged_in = False
         st.rerun()
