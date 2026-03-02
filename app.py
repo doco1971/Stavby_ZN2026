@@ -8,16 +8,18 @@ st.set_page_config(page_title="Evidence 2026", layout="wide")
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    /* ÚPRAVA OKRAJŮ: Zvětšeno odsazení z 0.5rem na 2rem pro odsazení od krajů */
+    
+    /* ÚPRAVA OKRAJŮ: Nahoře/Dole 0, Vlevo/Vpravo 3rem (cca 50px) */
     .block-container { 
-        padding: 1rem 2rem !important; 
-        max-width: 95% !important; 
-        margin: auto;
+        padding-top: 0.5rem !important; 
+        padding-bottom: 0rem !important; 
+        padding-left: 3rem !important; 
+        padding-right: 3rem !important;
+        max-width: 100% !important;
     }
     
     .custom-head { font-size: 1.1rem; font-weight: bold; margin-bottom: 0.3rem; }
     
-    /* Metriky */
     .metric-box {
         border: 1px solid #d1d5db;
         background-color: #f9fafb;
@@ -29,7 +31,6 @@ st.markdown("""
     .metric-label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; }
     .metric-value { font-size: 1rem; font-weight: bold; color: #111827; }
 
-    /* TABULKA - ZACHOVÁNO 400PX */
     .table-container { height: 400px; overflow: auto; border: 1px solid #000; }
     .table-container::-webkit-scrollbar { width: 30px; height: 30px; }
     .table-container::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -44,7 +45,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA (ZACHOVÁNO 23 SLOUPCŮ) ---
+# --- 2. DATA (23 SLOUPCŮ) ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
@@ -79,14 +80,14 @@ if not df_raw.empty:
     for i in range(5):
         m[i].markdown(f'<div class="metric-box"><div class="metric-label">{labels[i]}</div><div class="metric-value">{vals[i]}</div></div>', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA (ZACHOVÁNO DVOJITÉ ZÁHLAVÍ A ŠÍŘKY) ---
+    # --- 4. HTML TABULKA ---
     html = '<div class="table-container"><table class="html-table">'
     html += '<colgroup>'
-    html += '<col style="width:40px"><col style="width:100px">' # poř, firma
-    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' # Kat I (90px dle dohody)
-    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' # Kat II (90px dle dohody)
-    html += '<col style="width:90px"><col style="width:250px">' # č.stavby, název
-    html += '<col style="width:100px"><col style="width:100px"><col style="width:100px">' # nab, roz, vyf
+    html += '<col style="width:40px"><col style="width:100px">' 
+    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' 
+    html += '<col style="width:90px"><col style="width:90px"><col style="width:90px">' 
+    html += '<col style="width:90px"><col style="width:250px">' 
+    html += '<col style="width:100px"><col style="width:100px"><col style="width:100px">' 
     html += '<col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:100px">'
     html += '</colgroup>'
 
