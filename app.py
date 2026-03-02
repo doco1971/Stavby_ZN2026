@@ -52,12 +52,13 @@ if not df_raw.empty:
     col_rozdil = next((c for c in cols if 'rozdíl' in c.lower()), None)
     col_stav = next((c for c in cols if 'stav' in c.lower() and 'název' not in c.lower()), None)
 
-    # Přísná konverze na čísla hned na začátku
+    # --- PŘÍSNÁ ÚPRAVA ČÍSEL (round 2) ---
     fin_cols = [c for c in [col_nabidka, col_rozdil] if c]
     for c in fin_cols:
-        df_raw[c] = pd.to_numeric(df_raw[c], errors='coerce').fillna(0).astype(float)
+        # Převedeme na čísla a natvrdo zaokrouhlíme v paměti na 2 místa
+        df_raw[c] = pd.to_numeric(df_raw[c], errors='coerce').fillna(0).round(2)
 
-    # Formátování dat (textově pro stabilitu)
+    # Formátování dat
     for c in cols:
         if 'dne' in c.lower() or 'ukončení' in c.lower():
             df_raw[c] = pd.to_datetime(df_raw[c], errors='coerce').dt.strftime('%d.%m.%Y').replace('NaT', '')
@@ -99,25 +100,20 @@ if not df_raw.empty:
             elif 'probíh' in s: color = 'background-color: #fffdf2'
             elif 'faktur' in s: color = 'background-color: #f0f7ff'
             styles = [color] * len(row)
+        
+        # Červená barva pro záporná čísla
         if col_rozdil:
             idx = row.index.get_loc(col_rozdil)
             if float(row[col_rozdil]) < 0:
                 styles[idx] += '; color: #d00000; font-weight: bold;'
         return styles
 
-    # Vynucení 2 des. míst v konfiguraci sloupců
-    # "%.2f" říká Streamlitu: zobrazuj jen dvě desetinná místa a nic jiného
-    col_config = {
-        c: st.column_config.NumberColumn(format="%.2f") for c in fin_cols
-    }
-
-    # Zobrazení tabulky
+    # Zobrazení tabulky s pevnou výškou pro posuvník
     st.dataframe(
         df_f.style.apply(style_row, axis=1).format({c: "{:,.2f}".format for c in fin_cols}, thousands=" ", decimal="."),
         use_container_width=True, 
-        height=545, # Výška nastavená přesně na cca 16 řádků + hlavička
-        hide_index=True,
-        column_config=col_config
+        height=380, # SNÍŽENO pro zobrazení cca 16 řádků
+        hide_index=True
     )
     
 else:
