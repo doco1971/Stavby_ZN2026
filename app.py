@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- 1. KONFIGURACE ---
+# --- 1. KONFIGURACE A STYLY (TVÉ PŮVODNÍ) ---
 st.set_page_config(page_title="Evidence 2026", layout="wide")
 
 st.markdown("""
@@ -67,7 +67,7 @@ st.markdown("""
         padding: 5px; 
         z-index: 10; 
         text-align: center;
-        text-transform: none; /* Aby zůstala velká písmena tak, jak je napíšeme */
+        text-transform: none;
     }
     .html-table td { border: 1px solid #000; padding: 4px 6px; white-space: nowrap; overflow: hidden; }
     
@@ -76,7 +76,31 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA ---
+# --- 2. PŘIHLAŠOVACÍ SYSTÉM ---
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    _, col_m, _ = st.columns([1, 1, 1])
+    with col_m:
+        st.write("")
+        st.markdown("### 🔐 Přihlášení do systému")
+        u = st.text_input("Uživatel")
+        p = st.text_input("Heslo", type="password")
+        if st.button("Vstoupit", use_container_width=True):
+            if u == "admin" and p == "zn2026":
+                st.session_state.logged_in = True
+                st.session_state.role = "supervisor"
+                st.rerun()
+            elif u == "host" and p == "prohlizec":
+                st.session_state.logged_in = True
+                st.session_state.role = "user"
+                st.rerun()
+            else:
+                st.error("Nesprávné jméno nebo heslo")
+    st.stop() # Zastaví zbytek kódu, pokud není přihlášen
+
+# --- 3. DATA (TVÁ PŮVODNÍ LOGIKA) ---
 @st.cache_data(ttl=1)
 def load_data():
     try:
@@ -92,17 +116,19 @@ def load_data():
 df_raw = load_data()
 
 if not df_raw.empty:
+    # Horní lišta: Nadpis a Hledání
     c_h1, c_h2 = st.columns([1, 4])
     with c_h1: st.markdown('<div class="custom-head">Evidence 2026</div>', unsafe_allow_html=True)
     with c_h2: hledat = st.text_input("", placeholder="Hledat...", label_visibility="collapsed")
 
     df = df_raw.copy()
+    # Filtrace prázdných řádků
     df = df[(df[0] > 0) | (df[9].astype(str).str.strip() != "")]
 
     if hledat:
         df = df[df.apply(lambda r: hledat.lower() in str(list(r.values)).lower(), axis=1)]
 
-    # --- 3. VÝPOČTY ---
+    # --- 4. VÝPOČTY (TVÉ PŮVODNÍ) ---
     cat1_dur, cat1_zmes = 0.0, 0.0
     cat2_dur, cat2_zmes = 0.0, 0.0
 
@@ -120,7 +146,7 @@ if not df_raw.empty:
     celkem_val = df[10].sum()
     zakazek_cnt = int((df[0] > 0).sum())
 
-    # --- METRIKY (OPRAVENÉ NÁZVY) ---
+    # --- 5. METRIKY (TVÉ PŮVODNÍ) ---
     m = st.columns([1, 1.5, 1.5, 1, 0.8]) 
     m[0].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Celkem Nabídka</div><div class="cat-content"><div class="metric-value">{celkem_val:,.2f} Kč</div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
     m[1].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Kategorie I</div><div class="cat-content"><div class="cat-sub-item"><div class="metric-label">DUR</div><div class="metric-value">{cat1_dur:,.2f}</div></div><div class="cat-sub-item" style="border-left: 1px solid #d1d5db;"><div class="metric-label">ZMES</div><div class="metric-value">{cat1_zmes:,.2f}</div></div></div></div>'''.replace(",", " "), unsafe_allow_html=True)
@@ -128,47 +154,13 @@ if not df_raw.empty:
     m[3].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Probíhá</div><div class="cat-content"><div class="metric-value">0.00 Kč</div></div></div>''', unsafe_allow_html=True)
     m[4].markdown(f'''<div class="metric-box-styled"><div class="cat-header-main">Zakázek</div><div class="cat-content"><div class="metric-value">{zakazek_cnt}</div></div></div>''', unsafe_allow_html=True)
 
-    # --- 4. HTML TABULKA (OPRAVENÉ HLAVIČKY) ---
+    # --- 6. HTML TABULKA (TVÁ PŮVODNÍ) ---
     html = '<div class="table-container"><table class="html-table">'
-    html += '<colgroup>'
-    html += '<col style="width:35px">'
-    html += '<col style="width:90px">'
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:115px">' 
-    html += '<col style="width:90px"><col style="width:250px"><col style="width:115px">' 
-    html += '<col style="width:115px"><col style="width:115px"><col style="width:85px">' 
-    html += '<col style="width:85px"><col style="width:85px"><col style="width:85px">' 
-    html += '<col style="width:110px"><col style="width:110px"><col style="width:115px">' 
-    html += '<col style="width:100px"><col style="width:115px"><col style="width:100px">' 
-    html += '</colgroup>'
+    html += '<colgroup><col style="width:35px"><col style="width:90px">' + '<col style="width:115px">'*6 + '<col style="width:90px"><col style="width:250px"><col style="width:115px">' + '<col style="width:115px">'*3 + '<col style="width:85px">'*4 + '<col style="width:110px">'*2 + '<col style="width:115px"><col style="width:100px"><col style="width:115px"><col style="width:100px"></colgroup>'
 
-    # Definice hlavičky s velkými počátečními písmeny
     html += '<thead>'
-    html += '<tr>'
-    html += '<th rowspan="2">Poř.č.</th>'
-    html += '<th rowspan="2">Firma</th>'
-    html += '<th colspan="3">Kategorie I</th>'
-    html += '<th colspan="3">Kategorie II</th>'
-    html += '<th rowspan="2">Č.stavby</th>'
-    html += '<th rowspan="2">Název stavby</th>'
-    html += '<th rowspan="2">Nabídka</th>'
-    html += '<th rowspan="2">Rozdíl</th>'
-    html += '<th rowspan="2">Vyfaktur.</th>'
-    html += '<th rowspan="2">Ukončení</th>'
-    html += '<th rowspan="2">Zrealiz.</th>'
-    html += '<th rowspan="2">SOD</th>'
-    html += '<th rowspan="2">Ze dne</th>'
-    html += '<th rowspan="2">Objednatel</th>'
-    html += '<th rowspan="2">Stavbyved.</th>'
-    html += '<th rowspan="2">Nabídková c.</th>'
-    html += '<th rowspan="2">Č.faktury</th>'
-    html += '<th rowspan="2">Bez DPH</th>'
-    html += '<th rowspan="2">Splatná</th>'
-    html += '</tr>'
-    html += '<tr>'
-    html += '<th>PS</th><th>SNK</th><th>BO</th>' # Pod-hlavičky Kat I
-    html += '<th>PS</th><th>BO</th><th>Poruch</th>' # Pod-hlavičky Kat II
-    html += '</tr>'
+    html += '<tr><th rowspan="2">Poř.č.</th><th rowspan="2">Firma</th><th colspan="3">Kategorie I</th><th colspan="3">Kategorie II</th><th rowspan="2">Č.stavby</th><th rowspan="2">Název stavby</th><th rowspan="2">Nabídka</th><th rowspan="2">Rozdíl</th><th rowspan="2">Vyfaktur.</th><th rowspan="2">Ukončení</th><th rowspan="2">Zrealiz.</th><th rowspan="2">SOD</th><th rowspan="2">Ze dne</th><th rowspan="2">Objednatel</th><th rowspan="2">Stavbyved.</th><th rowspan="2">Nabídková c.</th><th rowspan="2">Č.faktury</th><th rowspan="2">Bez DPH</th><th rowspan="2">Splatná</th></tr>'
+    html += '<tr><th>PS</th><th>SNK</th><th>BO</th><th>PS</th><th>BO</th><th>Poruch</th></tr>'
     html += '</thead><tbody>'
 
     for _, row in df.iterrows():
@@ -194,5 +186,10 @@ if not df_raw.empty:
         html += '</tr>'
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
+
+    # Tlačítko pro odhlášení v bočním panelu
+    if st.sidebar.button("Odhlásit"):
+        st.session_state.logged_in = False
+        st.rerun()
 else:
     st.error("Data nenalezena.")
